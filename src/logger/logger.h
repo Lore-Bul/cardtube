@@ -58,6 +58,12 @@ public:
 
     static void set_color_mode(ColorMode mode);
 
+    // Optional append-only log file. Every emitted line is mirrored there, which
+    // is the only way to read the logs when the app is started by a launcher
+    // whose stdout is not visible (APPLaunch on the CardputerZero).
+    static void set_file(const std::string& path);
+    static void close_file();
+
     static void set_timestamp_enabled(bool enabled);
     static bool timestamp_enabled();
 

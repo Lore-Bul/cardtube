@@ -4,6 +4,26 @@ Tutte le modifiche rilevanti di CardTube sono annotate in questo file.
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il
 progetto usa il [versionamento semantico](https://semver.org/lang/it/).
 
+## [0.4.2] - 2026-11-18
+
+### Corretto
+
+- Tastiera integrata: le lettere erano sbagliate (`qrstuvw...` invece di
+  `qwerty...`, `abcde...` invece di `asdfg...`) perché i codici evdev seguono la
+  posizione fisica dei tasti e non l'alfabeto. Ora le tre file usano tabelle
+  esplicite (`qwertyuiop`, `asdfghjkl`, `zxcvbnm`) con Shift corretto.
+- Audio Bluetooth: il log di `mpv` era sempre vuoto perché `--no-terminal`
+  disattivava anche stdout/stderr. Ora `mpv` scrive sempre in
+  `/tmp/cardtube/mpv.log` tramite `--log-file`.
+- Audio Bluetooth: `mpv` riceve prima `pulse/<sink>` e solo come ripiego
+  `pipewire/<sink>`; dopo il caricamento lo stream viene spostato sul sink
+  scelto non appena compare, con più tentativi. Il sink viene anche smutato e,
+  se è a volume zero, riportato al 60%.
+- Diagnostica: CardTube scrive un log persistente in
+  `/tmp/cardtube/cardtube.log` (utile quando l'app è avviata da APPLaunch) con
+  sink disponibili, esito dei comandi `pactl`/`bluetoothctl` e proprietà audio
+  effettive di `mpv`.
+
 ## [0.4.1] - 2026-11-18
 
 ### Aggiunto

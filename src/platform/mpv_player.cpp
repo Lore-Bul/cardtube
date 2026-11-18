@@ -157,7 +157,10 @@ bool spawn_daemon(int volume_percent) {
         "--no-terminal",
         "--input-terminal=no",
         "--input-default-bindings=no",
-        "--msg-level=all=warn",
+        // --log-file keeps working even with --no-terminal, which would
+        // otherwise silence every message and leave /tmp/cardtube/mpv.log empty.
+        "--msg-level=all=info",
+        "--log-file=" + log_path,
         "--no-config",
         "--audio-display=no",
         "--audio-client-name=CardTube",
@@ -240,6 +243,15 @@ void wait_for_child(int timeout_ms) {
 #else
     (void)timeout_ms;
 #endif
+}
+
+bool set_audio_device_locked(const std::string& device) {
+    const std::string quoted = "\"" + json_escape(device) + "\"";
+    if (!g_client.set_property("audio-device", quoted, 1500)) {
+        LOG_WARN("mpv rejected audio-device={}", device);
+        return false;
+    }
+    return true;
 }
 
 } // namespace
@@ -394,21 +406,51 @@ void set_volume(int volume_percent) {
     }
 }
 
-void set_audio_device(const std::string& sink) {
+bool set_audio_device(const std::string& sink) {
+    std::lock_guard<std::mutex> lock(g_client_mutex);
+    if (!g_client.connected()) {
+        LOG_WARN("mpv: audio-device not applied, IPC not connected");
+        return false;
+    }
+
+    if (sink.empty()) {
+        g_client.set_property("audio-device", "\"auto\"", 1500);
+        LOG_INFO("mpv audio-device: auto");
+        return true;
+    }
+
+    // pulse/ works through pipewire-pulse, which is present whenever pactl is.
+    const std::string pulse = "pulse/" + sink;
+    if (set_audio_device_locked(pulse)) {
+        LOG_INFO("mpv audio-device: {}", pulse);
+        return true;
+    }
+
+    const std::string pipewire = "pipewire/" + sink;
+    if (set_audio_device_locked(pipewire)) {
+        LOG_INFO("mpv audio-device: {}", pipewire);
+        return true;
+    }
+
+    LOG_WARN("mpv: no audio device accepted for sink {}", sink);
+    return false;
+}
+
+void log_audio_status() {
     std::lock_guard<std::mutex> lock(g_client_mutex);
     if (!g_client.connected()) {
         return;
     }
 
-    if (sink.empty()) {
-        g_client.set_property("audio-device", "\"auto\"", 1500);
-        return;
-    }
-
-    const std::string pipewire = "\"" + json_escape("pipewire/" + sink) + "\"";
-    if (!g_client.set_property("audio-device", pipewire, 1500)) {
-        const std::string pulse = "\"" + json_escape("pulse/" + sink) + "\"";
-        g_client.set_property("audio-device", pulse, 1500);
+    static const char* properties[] = {
+        "audio-device", "current-ao", "audio-params", "idle-active", "pause",
+        "volume", "mute", "audio-out-params",
+    };
+    for (const char* name : properties) {
+        std::string raw;
+        if (g_client.get_property(name, raw)) {
+            LOG_INFO("mpv {} = {}", name, raw);
+        }
     }
 }
 

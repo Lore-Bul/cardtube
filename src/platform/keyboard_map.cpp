@@ -11,7 +11,8 @@
 #include "lvgl.h"
 
 #include <array>
-#include <cstring>
+#include <cctype>
+#include <string_view>
 
 namespace platform {
 namespace {
@@ -88,14 +89,14 @@ uint32_t character_of(char value) {
     return static_cast<uint32_t>(static_cast<unsigned char>(value));
 }
 
-uint32_t letter_of(uint16_t code, uint16_t first, char base, bool shift) {
-    const uint32_t offset = code - first;
-    if (offset > 25) {
+uint32_t letter_of(uint16_t code, uint16_t first, std::string_view letters, bool shift) {
+    const auto index = static_cast<std::size_t>(code - first);
+    if (index >= letters.size()) {
         return 0;
     }
-    char character = static_cast<char>(base + offset);
-    if (shift && character >= 'a' && character <= 'z') {
-        character = static_cast<char>(character - 'a' + 'A');
+    char character = letters[index];
+    if (shift) {
+        character = static_cast<char>(std::toupper(static_cast<unsigned char>(character)));
     }
     return character_of(character);
 }
@@ -121,14 +122,17 @@ uint32_t map_evdev_key(uint16_t code, bool shift, bool cardputer_keyboard) {
         }
     }
 
+    // evdev key codes follow the physical key positions of a US keyboard, not
+    // the alphabet: Q..P is 16..25 and spells "qwertyuiop", A..L is 30..38 and
+    // spells "asdfghjkl", Z..M is 44..50 and spells "zxcvbnm".
     if (code >= evdev::kQ && code <= evdev::kP) {
-        return letter_of(code, evdev::kQ, 'q', shift);
+        return letter_of(code, evdev::kQ, "qwertyuiop", shift);
     }
     if (code >= evdev::kA && code <= evdev::kL) {
-        return letter_of(code, evdev::kA, 'a', shift);
+        return letter_of(code, evdev::kA, "asdfghjkl", shift);
     }
     if (code >= evdev::kZ && code <= evdev::kM) {
-        return letter_of(code, evdev::kZ, 'z', shift);
+        return letter_of(code, evdev::kZ, "zxcvbnm", shift);
     }
     if (code >= evdev::kDigit1 && code <= evdev::kDigit0) {
         constexpr char digits[] = "1234567890";
@@ -248,6 +252,16 @@ bool keyboard_map_self_test(std::string& error) {
         {"shift+2", 3, true, true, '@'},
         {"letter a", 30, false, true, 'a'},
         {"shift+letter a", 30, true, true, 'A'},
+        {"letter w is not r", 17, false, true, 'w'},
+        {"letter r is not t", 19, false, true, 'r'},
+        {"letter s is not b", 31, false, true, 's'},
+        {"letter d is not c", 32, false, true, 'd'},
+        {"letter p", 25, false, true, 'p'},
+        {"letter z is not a", 44, false, true, 'z'},
+        {"letter x is not b", 45, false, true, 'x'},
+        {"letter v is not c", 47, false, true, 'v'},
+        {"letter m is not f", 50, false, true, 'm'},
+        {"shift+letter b", 48, true, true, 'B'},
         {"enter", 28, false, true, LV_KEY_ENTER},
         {"backspace", 14, false, true, LV_KEY_BACKSPACE},
         {"space", 57, false, true, ' '},

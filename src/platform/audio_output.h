@@ -42,6 +42,11 @@ bool is_bluetooth_sink(const std::string& sink_name);
 // Makes sink_name the default sink and moves CardTube's mpv stream to it.
 bool apply_audio_output(const std::string& sink_name, std::string& error);
 
+// Moves CardTube's existing streams to sink_name, polling until the stream
+// shows up (mpv creates it asynchronously after loadfile). Returns false when
+// no stream could be moved within the attempts.
+bool route_audio_streams(const std::string& sink_name, int attempts = 20, int delay_ms = 150);
+
 // Connects an already-paired Bluetooth device and waits for its audio sink.
 bool connect_bluetooth_output(const std::string& address,
                               std::string& sink_name,

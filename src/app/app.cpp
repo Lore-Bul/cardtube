@@ -12,6 +12,7 @@
 #include "keyboard_map.h"
 #include "logger.h"
 #include "linux_input.h"
+#include "process.h"
 #include "screenshot_service.h"
 #include "screen_manager.h"
 #include "base_viewmodel.h"
@@ -311,6 +312,12 @@ void run_demo_capture(lv_display_t* display,
 int Application::run() {
     logger::Logger::init();
     logger::Logger::set_tag("cardtube");
+    logger::Logger::set_timestamp_enabled(true);
+#if !USE_DESKTOP
+    // APPLaunch hides the app stdout, so mirror the log to a file that can be
+    // read over SSH: /tmp/cardtube/cardtube.log
+    logger::Logger::set_file(platform::runtime_directory() + "/cardtube.log");
+#endif
 
     std::string keyboard_error;
     if (!platform::keyboard_map_self_test(keyboard_error)) {

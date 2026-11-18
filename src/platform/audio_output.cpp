@@ -6,9 +6,11 @@
 
 #include "audio_output.h"
 
+#include "logger.h"
 #include "process.h"
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -204,6 +206,53 @@ std::vector<int> cardtube_streams(const std::string& text) {
     return ids;
 }
 
+int sink_volume_percent(const std::string& sink) {
+    const auto result = run_command({"pactl", "get-sink-volume", sink}, 5000);
+    if (!result.started || result.exit_code != 0) {
+        return -1;
+    }
+
+    int highest = 0;
+    bool found = false;
+    const auto& text = result.output;
+    for (std::size_t pos = 0; pos < text.size(); ++pos) {
+        if (text[pos] != '%') {
+            continue;
+        }
+        std::size_t begin = pos;
+        while (begin > 0 && std::isdigit(static_cast<unsigned char>(text[begin - 1]))) {
+            --begin;
+        }
+        if (begin == pos) {
+            continue;
+        }
+        const int value = std::atoi(text.substr(begin, pos - begin).c_str());
+        highest = found ? std::max(highest, value) : value;
+        found = true;
+    }
+    return found ? highest : -1;
+}
+
+void ensure_sink_volume(const std::string& sink) {
+    const int percent = sink_volume_percent(sink);
+    if (percent < 0) {
+        LOG_WARN("pactl get-sink-volume {} failed", sink);
+        return;
+    }
+    if (percent > 0) {
+        LOG_INFO("sink {} volume: {}%", sink, percent);
+        return;
+    }
+
+    std::string error;
+    if (run_pactl({"set-sink-volume", sink, "60%"}, 5000, error)) {
+        LOG_INFO("sink {} was at 0%, raised to 60%", sink);
+    }
+    else {
+        LOG_WARN("pactl set-sink-volume {} failed: {}", sink, error);
+    }
+}
+
 void move_cardtube_streams(const std::string& sink_name) {
     const auto result = run_command({"pactl", "list", "sink-inputs"}, 6000);
     if (!result.started || result.exit_code != 0) {
@@ -212,11 +261,45 @@ void move_cardtube_streams(const std::string& sink_name) {
 
     std::string ignored;
     for (const int id : cardtube_streams(result.output)) {
-        run_pactl({"move-sink-input", std::to_string(id), sink_name}, 5000, ignored);
+        const bool moved = run_pactl({"move-sink-input", std::to_string(id), sink_name}, 5000, ignored);
+        LOG_INFO("pactl move-sink-input {} -> {}: {}", id, sink_name,
+                 moved ? "ok" : ignored);
     }
 }
 
 } // namespace
+
+bool route_audio_streams(const std::string& sink_name, int attempts, int delay_ms) {
+    if (sink_name.empty()) {
+        return false;
+    }
+
+    const int total = std::max(1, attempts);
+    for (int attempt = 0; attempt < total; ++attempt) {
+        const auto result = run_command({"pactl", "list", "sink-inputs"}, 6000);
+        if (result.started && result.exit_code == 0) {
+            const auto ids = cardtube_streams(result.output);
+            if (!ids.empty()) {
+                std::string error;
+                bool all_moved = true;
+                for (const int id : ids) {
+                    const bool moved =
+                        run_pactl({"move-sink-input", std::to_string(id), sink_name}, 5000, error);
+                    LOG_INFO("pactl move-sink-input {} -> {}: {}", id, sink_name,
+                             moved ? "ok" : error);
+                    all_moved = all_moved && moved;
+                }
+                return all_moved;
+            }
+        }
+        if (attempt + 1 < total) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(std::max(50, delay_ms)));
+        }
+    }
+
+    LOG_WARN("no CardTube stream found to route to {}", sink_name);
+    return false;
+}
 
 bool audio_output_available() {
     return command_exists("pactl");
@@ -237,11 +320,21 @@ std::string default_sink_name() {
 
 std::vector<AudioOutput> list_audio_outputs() {
     if (!audio_output_available()) {
+        LOG_WARN("audio: pactl is not available");
         return {};
     }
 
     auto sinks = query_connected_sinks();
+    for (const auto& sink : sinks) {
+        LOG_INFO("audio sink: {} ({}){}", sink.sink, sink.description,
+                 is_bluetooth_sink(sink.sink) ? " [bluetooth]" : "");
+    }
+
     auto bluetooth = query_paired_bluetooth(sinks);
+    for (const auto& device : bluetooth) {
+        LOG_INFO("audio bluetooth (pairing only): {} {}", device.address, device.description);
+    }
+
     sinks.insert(sinks.end(),
                  std::make_move_iterator(bluetooth.begin()),
                  std::make_move_iterator(bluetooth.end()));
@@ -255,11 +348,16 @@ bool apply_audio_output(const std::string& sink_name, std::string& error) {
         return false;
     }
     if (!run_pactl({"set-default-sink", sink_name}, 6000, error)) {
+        LOG_WARN("pactl set-default-sink {} failed: {}", sink_name, error);
         return false;
     }
+    LOG_INFO("pactl set-default-sink {}", sink_name);
 
     std::string ignored;
-    run_pactl({"set-sink-mute", sink_name, "0"}, 5000, ignored);
+    if (!run_pactl({"set-sink-mute", sink_name, "0"}, 5000, ignored)) {
+        LOG_WARN("pactl set-sink-mute {} failed: {}", sink_name, ignored);
+    }
+    ensure_sink_volume(sink_name);
     move_cardtube_streams(sink_name);
     return true;
 }
@@ -276,6 +374,7 @@ bool connect_bluetooth_output(const std::string& address,
 
     const auto result = run_command({"bluetoothctl", "connect", address}, 20000);
     const auto output = combined_output(result);
+    LOG_INFO("bluetoothctl connect {} -> {}", address, output);
     const auto lower = lowercase_copy(output);
     const bool connected = result.started &&
                            (result.exit_code == 0 ||
@@ -291,6 +390,7 @@ bool connect_bluetooth_output(const std::string& address,
         for (const auto& sink : query_connected_sinks()) {
             if (lowercase_copy(sink.sink).find(token) != std::string::npos) {
                 sink_name = sink.sink;
+                LOG_INFO("bluetooth sink appeared: {}", sink_name);
                 return true;
             }
         }
@@ -298,6 +398,7 @@ bool connect_bluetooth_output(const std::string& address,
     }
 
     error = "the device connected but no audio sink appeared";
+    LOG_WARN("bluetooth: {} (address {})", error, address);
     return false;
 }
 

@@ -36,9 +36,14 @@ void set_pause(bool paused);
 void seek_relative(double seconds);
 void set_volume(int volume_percent);
 
-// Routes the audio output to a PulseAudio/PipeWire sink ("pipewire/<sink>",
-// falling back to "pulse/<sink>"). An empty name restores automatic selection.
-void set_audio_device(const std::string& sink);
+// Routes the audio output to a PulseAudio/PipeWire sink. Tries "pulse/<sink>"
+// first (always present when pactl works) and then "pipewire/<sink>". An empty
+// name restores automatic selection. Returns true when mpv accepted a device.
+bool set_audio_device(const std::string& sink);
+
+// Logs the audio properties mpv is really using (audio-device, current-ao,
+// audio-params). Call after a stream started to diagnose silent playback.
+void log_audio_status();
 
 Snapshot snapshot();
 void clear_ended();

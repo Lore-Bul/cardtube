@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <mutex>
 #ifdef _WIN32
 #  include <io.h>
 #  include <process.h>
@@ -28,6 +29,11 @@
 #endif
 
 namespace logger {
+
+namespace {
+std::mutex g_file_mutex;
+std::FILE* g_file = nullptr;
+} // namespace
 
 constexpr const char* RESET   = "\033[0m";
 constexpr const char* GRAY    = "\033[90m";
@@ -158,6 +164,25 @@ void Logger::set_color_mode(ColorMode mode) {
     color_mode_ = mode;
 }
 
+void Logger::set_file(const std::string& path) {
+    std::lock_guard<std::mutex> lock(g_file_mutex);
+    if (g_file) {
+        std::fclose(g_file);
+        g_file = nullptr;
+    }
+    if (!path.empty()) {
+        g_file = std::fopen(path.c_str(), "a");
+    }
+}
+
+void Logger::close_file() {
+    std::lock_guard<std::mutex> lock(g_file_mutex);
+    if (g_file) {
+        std::fclose(g_file);
+        g_file = nullptr;
+    }
+}
+
 void Logger::set_timestamp_enabled(bool enabled) {
     timestamp_enabled_ = enabled;
 }
@@ -204,6 +229,13 @@ void Logger::log(LogLevel level,
         printf("%s %s\n",
                prefix.c_str(),
                msg.c_str());
+    }
+    std::fflush(stdout);
+
+    std::lock_guard<std::mutex> lock(g_file_mutex);
+    if (g_file) {
+        std::fprintf(g_file, "%s %s\n", prefix.c_str(), msg.c_str());
+        std::fflush(g_file);
     }
 }
 

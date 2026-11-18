@@ -92,9 +92,9 @@ Per la compilazione:
 Copiare il pacchetto e installarlo con `apt`:
 
 ```shell
-scp dist/CardTube_0.4.1_rev1_arm64.deb <utente>@<ip-dispositivo>:~/
+scp dist/CardTube_0.4.2_rev1_arm64.deb <utente>@<ip-dispositivo>:~/
 ssh <utente>@<ip-dispositivo>
-sudo apt install --no-install-recommends ./CardTube_0.4.1_rev1_arm64.deb
+sudo apt install --no-install-recommends ./CardTube_0.4.2_rev1_arm64.deb
 ```
 
 Il pacchetto installa:
@@ -125,7 +125,9 @@ chiude il player.
 Il Cardputer Zero ha 46 tasti senza punteggiatura dedicata. CardTube decodifica
 la tastiera `tca8418` con la mappa ufficiale M5Stack:
 
-- **Shift** produce maiuscole e i simboli della fila numerica (`!@#$%^&*()`).
+- **Lettere** seguono la serigrafia fisica (`qwertyuiop`, `asdfghjkl`,
+  `zxcvbnm`), con **Shift** per le maiuscole.
+- **Shift** produce anche i simboli della fila numerica (`!@#$%^&*()`).
 - **Sym** attiva i simboli blu stampati sui tasti: `` ` ~ ! @ # $ % ^ & * ( ) - _ = + [ ] { } ; : ' " , . / \ | < > ? ``.
 - **Fn** attiva i tasti arancioni. CardTube gestisce `Fn+Q/W/E` (play-pausa,
   precedente, successivo), `Fn+A/S/D` (mute, volume giù, volume su) e le frecce
@@ -194,6 +196,22 @@ La riga **Audio output** elenca la cassa interna e le cuffie Bluetooth già
 accoppiate: con `Sinistra`/`Destra` si sceglie l'uscita, `Invio` la attiva (o
 connette il dispositivo Bluetooth selezionato) e aggiorna l'elenco. La scelta è
 salvata in `audio_output`; vuoto significa uscita di sistema predefinita.
+
+## Log e diagnostica
+
+Quando CardTube è avviata da APPLaunch lo stdout non è visibile, quindi l'app
+scrive due file leggibili via SSH:
+
+| File | Contenuto |
+| --- | --- |
+| `/tmp/cardtube/cardtube.log` | Sink audio trovati, esito di `pactl`/`bluetoothctl`, proprietà audio di `mpv`, self-test della tastiera. |
+| `/tmp/cardtube/mpv.log` | Log completo di `mpv` (`--log-file`). |
+
+```shell
+ls -l /tmp/cardtube/
+tail -n 100 /tmp/cardtube/cardtube.log
+tail -n 100 /tmp/cardtube/mpv.log
+```
 
 ## Configurazione
 
