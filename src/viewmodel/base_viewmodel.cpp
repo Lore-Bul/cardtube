@@ -1324,12 +1324,14 @@ void BaseViewModel::apply_audio_output_index(int index) {
         persisted = output.sink;
     }
     else {
-        // Auto: use the internal card when no Bluetooth output is selected.
-        for (const auto& candidate : audio_outputs_) {
-            if (candidate.kind == platform::AudioOutput::Kind::Sink &&
-                !platform::is_bluetooth_sink(candidate.sink)) {
-                sink = candidate.sink;
-                break;
+        // Auto: keep following the system default sink.
+        sink = platform::default_sink_name();
+        if (sink.empty()) {
+            for (const auto& candidate : audio_outputs_) {
+                if (candidate.kind == platform::AudioOutput::Kind::Sink) {
+                    sink = candidate.sink;
+                    break;
+                }
             }
         }
         if (sink.empty()) {

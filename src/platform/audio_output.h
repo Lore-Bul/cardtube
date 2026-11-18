@@ -33,6 +33,9 @@ std::vector<AudioOutput> list_audio_outputs();
 // True when a PulseAudio-compatible server (pactl) is reachable.
 bool audio_output_available();
 
+// Name of the current default sink, or empty when unknown.
+std::string default_sink_name();
+
 // True when the sink belongs to a Bluetooth device (bluez_output.*).
 bool is_bluetooth_sink(const std::string& sink_name);
 

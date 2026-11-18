@@ -227,6 +227,14 @@ bool is_bluetooth_sink(const std::string& sink_name) {
     return lower.find("bluez") != std::string::npos;
 }
 
+std::string default_sink_name() {
+    const auto result = run_command({"pactl", "get-default-sink"}, 5000);
+    if (!result.started || result.exit_code != 0) {
+        return {};
+    }
+    return trim_copy(result.output);
+}
+
 std::vector<AudioOutput> list_audio_outputs() {
     if (!audio_output_available()) {
         return {};
