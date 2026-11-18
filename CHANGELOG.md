@@ -16,6 +16,10 @@ progetto usa il [versionamento semantico](https://semver.org/lang/it/).
   di ricerca.
 - Nuove righe Settings per lingua e tastiera; la finestra di aiuto e i messaggi
   di stato sono tradotti.
+- Uscita audio selezionabile dalla pagina Settings: cassa interna oppure cuffie
+  e speaker Bluetooth già accoppiati (`audio_output` nel file di
+  configurazione). Il cambio sposta subito lo stream di `mpv` sul nuovo sink
+  PipeWire/PulseAudio e i dispositivi Bluetooth vengono connessi da CardTube.
 - La versione mostrata dalla UI ora deriva da CMake (`APP_VERSION`).
 
 ## [0.3.0] - 2026-11-18

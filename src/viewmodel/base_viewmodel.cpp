@@ -117,6 +117,7 @@ const char* kSettingLabels[BaseViewModel::kSettingCount] = {
     "Video mode",
     "Autoplay next",
     "Volume",
+    "Audio output",
     "Quality",
     "Dependencies",
     "Update yt-dlp",
@@ -156,6 +157,7 @@ BaseViewModel::BaseViewModel()
       quit_requested_subject_(false) {
     alive_ = std::make_shared<std::atomic<bool>>(true);
     status_text_ = i18n::tr("Type a search and press Enter");
+    audio_outputs_.push_back(platform::AudioOutput{});
 
     monitor_timer_ = lv_timer_create(monitor_timer_cb, 500, this);
     save_timer_ = lv_timer_create(save_timer_cb, 900, this);
@@ -393,16 +395,18 @@ std::string BaseViewModel::setting_value(int index) const {
         case 5:
             return std::to_string(model_.volume()) + "%";
         case 6:
-            return quality_display(model_.quality());
+            return audio_output_name(audio_output_selection_);
         case 7:
+            return quality_display(model_.quality());
+        case 8:
             if (!dependencies_checked_) {
                 return i18n::tr("Press Enter");
             }
             return platform::ytdlp::dependencies().ready() ? i18n::tr("Ready")
                                                          : i18n::tr("Missing tools");
-        case 8:
-            return i18n::tr("Press Enter");
         case 9:
+            return i18n::tr("Press Enter");
+        case 10:
             return i18n::tr("Press Enter");
         default:
             return {};
@@ -1113,6 +1117,23 @@ void BaseViewModel::adjust_setting(int delta) {
             change_volume(delta);
             return;
         case 6: {
+            if (audio_outputs_.size() < 2) {
+                refresh_audio_outputs(true);
+                return;
+            }
+            const int count = static_cast<int>(audio_outputs_.size());
+            audio_output_selection_ = ((audio_output_selection_ + delta) % count + count) % count;
+            const auto& output = audio_outputs_[static_cast<std::size_t>(audio_output_selection_)];
+            if (output.kind == platform::AudioOutput::Kind::Bluetooth) {
+                publish_settings();
+                set_status(std::string(i18n::tr("Press Enter to connect ")) +
+                           audio_output_name(audio_output_selection_));
+                return;
+            }
+            apply_audio_output_index(audio_output_selection_);
+            return;
+        }
+        case 7: {
             const std::string& next =
                 delta > 0 ? next_quality(model_.quality()) : previous_quality(model_.quality());
             model_.set_quality(next);
@@ -1157,16 +1178,28 @@ void BaseViewModel::activate_setting() {
         case 5:
             change_volume(1);
             break;
-        case 6:
+        case 6: {
+            if (audio_output_selection_ >= 0 &&
+                audio_output_selection_ < static_cast<int>(audio_outputs_.size()) &&
+                audio_outputs_[static_cast<std::size_t>(audio_output_selection_)].kind ==
+                    platform::AudioOutput::Kind::Bluetooth) {
+                connect_audio_output(audio_output_selection_);
+            }
+            else {
+                refresh_audio_outputs(true);
+            }
+            break;
+        }
+        case 7:
             adjust_setting(1);
             break;
-        case 7:
+        case 8:
             check_dependencies();
             break;
-        case 8:
+        case 9:
             update_ytdlp();
             break;
-        case 9:
+        case 10:
             request_quit();
             break;
         default:
@@ -1206,6 +1239,166 @@ void BaseViewModel::set_keyboard_layout(platform::KeyboardLayout layout) {
     publish_settings();
     set_status(std::string(i18n::tr("Keyboard layout: ")) +
                (layout == platform::KeyboardLayout::It ? "IT" : "US"));
+}
+
+std::string BaseViewModel::audio_output_name(int index) const {
+    if (index < 0 || index >= static_cast<int>(audio_outputs_.size())) {
+        return i18n::tr("Auto (system)");
+    }
+    const auto& output = audio_outputs_[static_cast<std::size_t>(index)];
+    if (output.kind == platform::AudioOutput::Kind::Auto) {
+        return i18n::tr("Auto (system)");
+    }
+    if (!output.description.empty()) {
+        return output.description;
+    }
+    return output.kind == platform::AudioOutput::Kind::Bluetooth ? output.address : output.sink;
+}
+
+void BaseViewModel::sync_audio_output_selection() {
+    if (!audio_output_sink_.empty()) {
+        for (std::size_t index = 0; index < audio_outputs_.size(); ++index) {
+            if (audio_outputs_[index].sink == audio_output_sink_) {
+                audio_output_selection_ = static_cast<int>(index);
+                return;
+            }
+        }
+    }
+    if (audio_output_selection_ < 0 ||
+        audio_output_selection_ >= static_cast<int>(audio_outputs_.size())) {
+        audio_output_selection_ = 0;
+    }
+}
+
+void BaseViewModel::refresh_audio_outputs(bool announce) {
+    if (audio_outputs_busy_) {
+        return;
+    }
+
+    audio_outputs_busy_ = true;
+    if (announce) {
+        set_status(i18n::tr("Updating audio devices..."));
+    }
+
+    auto alive = alive_;
+    platform::submit_background([this, alive, announce]() {
+        auto outputs = platform::list_audio_outputs();
+        if (!alive->load()) {
+            return;
+        }
+        platform::post_to_ui([this, outputs = std::move(outputs), announce, alive]() {
+            if (!alive->load()) {
+                return;
+            }
+            audio_outputs_busy_ = false;
+            audio_outputs_.clear();
+            audio_outputs_.push_back(platform::AudioOutput{});
+            for (auto& output : outputs) {
+                audio_outputs_.push_back(std::move(output));
+            }
+            audio_outputs_loaded_ = true;
+            sync_audio_output_selection();
+            publish_settings();
+            if (announce) {
+                set_status(i18n::tr("Audio devices updated"));
+            }
+        });
+    });
+}
+
+void BaseViewModel::apply_audio_output_index(int index) {
+    if (index < 0 || index >= static_cast<int>(audio_outputs_.size())) {
+        return;
+    }
+
+    const auto& output = audio_outputs_[static_cast<std::size_t>(index)];
+    if (output.kind == platform::AudioOutput::Kind::Bluetooth) {
+        connect_audio_output(index);
+        return;
+    }
+
+    std::string sink;
+    std::string persisted;
+    if (output.kind == platform::AudioOutput::Kind::Sink) {
+        sink = output.sink;
+        persisted = output.sink;
+    }
+    else {
+        // Auto: use the internal card when no Bluetooth output is selected.
+        for (const auto& candidate : audio_outputs_) {
+            if (candidate.kind == platform::AudioOutput::Kind::Sink &&
+                !platform::is_bluetooth_sink(candidate.sink)) {
+                sink = candidate.sink;
+                break;
+            }
+        }
+        if (sink.empty()) {
+            set_status(i18n::tr("No audio output available"));
+            return;
+        }
+    }
+
+    std::string error;
+    if (!platform::apply_audio_output(sink, error)) {
+        set_status(std::string(i18n::tr("Audio output failed: ")) + error);
+        return;
+    }
+
+    audio_output_sink_ = persisted;
+    audio_output_selection_ = index;
+    persist();
+    publish_settings();
+    set_status(std::string(i18n::tr("Audio output: ")) + audio_output_name(index));
+}
+
+void BaseViewModel::connect_audio_output(int index) {
+    if (index < 0 || index >= static_cast<int>(audio_outputs_.size())) {
+        return;
+    }
+    const auto output = audio_outputs_[static_cast<std::size_t>(index)];
+    if (output.kind != platform::AudioOutput::Kind::Bluetooth) {
+        return;
+    }
+    if (audio_output_connecting_) {
+        set_status(i18n::tr("Please wait, the audio device is busy"));
+        return;
+    }
+
+    audio_output_connecting_ = true;
+    set_status(std::string(i18n::tr("Connecting ")) + audio_output_name(index) + "...");
+
+    auto alive = alive_;
+    platform::submit_background([this, alive, output]() {
+        std::string sink;
+        std::string error;
+        const bool connected = platform::connect_bluetooth_output(output.address, sink, error);
+        std::string apply_error;
+        const bool applied = connected && platform::apply_audio_output(sink, apply_error);
+        if (!alive->load()) {
+            return;
+        }
+        platform::post_to_ui(
+            [this, alive, connected, applied, sink, error, apply_error, output]() {
+                if (!alive->load()) {
+                    return;
+                }
+                audio_output_connecting_ = false;
+                if (!connected) {
+                    set_status(std::string(i18n::tr("Audio output failed: ")) + error);
+                    refresh_audio_outputs(false);
+                    return;
+                }
+                if (!applied) {
+                    set_status(std::string(i18n::tr("Audio output failed: ")) + apply_error);
+                    refresh_audio_outputs(false);
+                    return;
+                }
+                audio_output_sink_ = sink;
+                persist();
+                refresh_audio_outputs(false);
+                set_status(std::string(i18n::tr("Audio output: ")) + output.description);
+            });
+    });
 }
 
 void BaseViewModel::check_dependencies() {
@@ -1485,6 +1678,15 @@ void BaseViewModel::load_config(const std::string& path) {
                            : platform::KeyboardLayout::Us;
     platform::set_keyboard_layout(keyboard_layout_);
 
+    audio_output_sink_ = application_config.audio_output;
+    if (!audio_output_sink_.empty()) {
+        std::string audio_error;
+        if (!platform::apply_audio_output(audio_output_sink_, audio_error)) {
+            LOG_WARN("cannot use audio output {}: {}", audio_output_sink_, audio_error);
+            audio_output_sink_.clear();
+        }
+    }
+
     publish_all();
     set_status(page_hint(model_.current_page()));
     LOG_INFO("loaded config: {}", path);
@@ -1508,6 +1710,7 @@ void BaseViewModel::persist() {
     application_config.language = i18n::language_code(language_);
     application_config.keyboard_layout =
         keyboard_layout_ == platform::KeyboardLayout::It ? "it" : "us";
+    application_config.audio_output = audio_output_sink_;
 
     std::string error;
     if (!config::save_application_config(config_path_, application_config, error)) {
@@ -1653,6 +1856,8 @@ bool BaseViewModel::take_video_error(std::string& error) {
 }
 
 void BaseViewModel::startup_check() {
+    refresh_audio_outputs(false);
+
     auto alive = alive_;
     platform::submit_background([this, alive]() {
         const auto status = platform::ytdlp::dependencies();

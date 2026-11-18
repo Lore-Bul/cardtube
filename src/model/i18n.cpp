@@ -44,6 +44,7 @@ constexpr Entry kEntries[] = {
     {"Keyboard", "Tastiera"},
     {"Video mode", "Modalità video"},
     {"Autoplay next", "Riproduci dopo"},
+    {"Audio output", "Uscita audio"},
     {"Quality", "Qualità"},
     {"Dependencies", "Dipendenze"},
     {"Update yt-dlp", "Aggiorna yt-dlp"},
@@ -120,6 +121,17 @@ constexpr Entry kEntries[] = {
     {"not installed", "non installato"},
     {"Language: ", "Lingua: "},
     {"Keyboard layout: ", "Tastiera: "},
+
+    // Audio output
+    {"Auto (system)", "Automatica (sistema)"},
+    {"Audio output: ", "Uscita audio: "},
+    {"Audio output failed: ", "Uscita audio non riuscita: "},
+    {"No audio output available", "Nessuna uscita audio disponibile"},
+    {"Updating audio devices...", "Aggiorno i dispositivi audio..."},
+    {"Audio devices updated", "Dispositivi audio aggiornati"},
+    {"Connecting ", "Connessione a "},
+    {"Press Enter to connect ", "Premi Invio per connettere "},
+    {"Please wait, the audio device is busy", "Attendi, dispositivo audio occupato"},
 
     // Video session
     {"Video finished - Space resumes audio", "Video terminato - Spazio riprende l'audio"},

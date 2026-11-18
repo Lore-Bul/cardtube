@@ -18,6 +18,7 @@ struct ApplicationConfig {
     std::string quality = "best";
     std::string language = "en";
     std::string keyboard_layout = "us";
+    std::string audio_output;
 };
 
 bool load_application_config(const std::string& path,

@@ -160,6 +160,7 @@ bool spawn_daemon(int volume_percent) {
         "--really-quiet",
         "--no-config",
         "--audio-display=no",
+"--audio-client-name=CardTube",
         "--gapless-audio=yes",
         "--cache=yes",
         "--demuxer-max-bytes=24MiB",

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "audio_output.h"
 #include "base_model.h"
 #include "i18n.h"
 #include "linux_input.h"
@@ -24,7 +25,7 @@ namespace viewmodel {
 
 class BaseViewModel {
 public:
-    static constexpr int kSettingCount = 10;
+    static constexpr int kSettingCount = 11;
 
     BaseViewModel();
     ~BaseViewModel();
@@ -193,6 +194,12 @@ private:
     void start_video_playback(const model::TrackInfo& track);
     void handle_auto_advance(double position_s);
 
+    void refresh_audio_outputs(bool announce);
+    void apply_audio_output_index(int index);
+    void connect_audio_output(int index);
+    void sync_audio_output_selection();
+    std::string audio_output_name(int index) const;
+
     static void monitor_timer_cb(lv_timer_t* timer);
     static void save_timer_cb(lv_timer_t* timer);
 
@@ -244,6 +251,13 @@ private:
     i18n::Language language_{i18n::Language::English};
     platform::KeyboardLayout keyboard_layout_{platform::KeyboardLayout::Us};
     std::function<void()> ui_refresh_callback_;
+
+    std::vector<platform::AudioOutput> audio_outputs_;
+    int audio_output_selection_{0};
+    std::string audio_output_sink_;
+    bool audio_outputs_loaded_{false};
+    bool audio_outputs_busy_{false};
+    bool audio_output_connecting_{false};
 
     std::shared_ptr<std::atomic<bool>> alive_;
 

@@ -49,6 +49,9 @@ voce APPLaunch, così l'app compare nel launcher e nello store.
 - **Cinque pagine**: Search, Results, NowPlaying, Queue, Settings.
 - **Interfaccia in italiano o inglese** (`language=en/it`) e **layout tastiera**
   US o italiano (`keyboard=us/it`) selezionabili dalle Settings.
+- **Uscita audio selezionabile**: cassa interna oppure cuffie/speaker Bluetooth
+  già accoppiati, con connessione dalle Settings e passaggio immediato dello
+  stream `mpv` (PipeWire/PulseAudio).
 - **Tema chiaro/scuro**, volume, qualità e autoplay configurabili e persistiti.
 - **Controllo dipendenze** integrato (presenza di `yt-dlp`, `mpv`, `curl` e
   aggiornamento di `yt-dlp` dalla pagina Settings).
@@ -172,6 +175,11 @@ dei caratteri: puoi per esempio usare l'interfaccia in italiano mantenendo la
 tastiera US. La scelta è salvata in `language` e `keyboard` nel file di
 configurazione.
 
+La riga **Audio output** elenca la cassa interna e le cuffie Bluetooth già
+accoppiate: con `Sinistra`/`Destra` si sceglie l'uscita, `Invio` la attiva (o
+connette il dispositivo Bluetooth selezionato) e aggiorna l'elenco. La scelta è
+salvata in `audio_output`; vuoto significa uscita di sistema predefinita.
+
 ## Configurazione
 
 Configurazione di sistema: `/etc/cardtube.conf`.
@@ -180,6 +188,7 @@ Configurazione di sistema: `/etc/cardtube.conf`.
 # CardTube configuration
 # dark_mode: yes/no, video_mode: open mpv fullscreen instead of audio only
 # language: en/it, keyboard: us/it (character layout of the device keyboard)
+# audio_output: PipeWire/PulseAudio sink name; empty = system default
 [application]
 dark_mode=yes
 video_mode=no
@@ -188,6 +197,7 @@ volume=80
 quality=best
 language=en
 keyboard=us
+audio_output=
 ```
 
 Le modifiche fatte dalla pagina Settings vengono salvate nel file utente:

@@ -167,6 +167,9 @@ bool load_application_config(const std::string& path,
         else if (key == "keyboard" || key == "keyboard_layout") {
             config.keyboard_layout = normalize_keyboard_layout(value);
         }
+        else if (key == "audio_output" || key == "output") {
+            config.audio_output = trim(value);
+        }
     }
 
     return true;
@@ -202,7 +205,8 @@ bool save_application_config(const std::string& path,
            << "volume=" << std::clamp(config.volume, 0, 100) << "\n"
            << "quality=" << normalize_quality(config.quality) << "\n"
            << "language=" << normalize_language(config.language) << "\n"
-           << "keyboard=" << normalize_keyboard_layout(config.keyboard_layout) << "\n";
+           << "keyboard=" << normalize_keyboard_layout(config.keyboard_layout) << "\n"
+           << "audio_output=" << trim(config.audio_output) << "\n";
 
     if (!output) {
         error = "failed while writing file";
