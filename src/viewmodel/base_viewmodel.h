@@ -7,11 +7,14 @@
 #pragma once
 
 #include "base_model.h"
+#include "i18n.h"
+#include "linux_input.h"
 #include "subjects.h"
 
 #include "lvgl.h"
 
 #include <atomic>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -21,7 +24,7 @@ namespace viewmodel {
 
 class BaseViewModel {
 public:
-    static constexpr int kSettingCount = 8;
+    static constexpr int kSettingCount = 10;
 
     BaseViewModel();
     ~BaseViewModel();
@@ -84,6 +87,13 @@ public:
     bool nav_shortcut_allowed() const;
     const std::string& config_path() const;
 
+    i18n::Language language() const;
+    platform::KeyboardLayout keyboard_layout() const;
+
+    // Rebuilds the LVGL screens so new translations are picked up. Registered
+    // by the app once the ScreenManager exists.
+    void set_ui_refresh_callback(std::function<void()> callback);
+
     std::string setting_label(int index) const;
     std::string setting_value(int index) const;
 
@@ -96,6 +106,7 @@ public:
 
     // ---- search ----------------------------------------------------------
     void append_query_char(char character);
+    void append_query_codepoint(uint32_t codepoint);
     void append_query(const std::string& text);
     void backspace_query();
     void clear_query();
@@ -134,6 +145,8 @@ public:
     void check_dependencies();
     void update_ytdlp();
     void show_version_info();
+    void set_language(i18n::Language language);
+    void set_keyboard_layout(platform::KeyboardLayout layout);
 
     // ---- keyboard --------------------------------------------------------
     bool handle_key(uint32_t key, const char* key_name, bool long_pressed, bool repeat);
@@ -169,6 +182,7 @@ private:
 
     void set_status(const std::string& message);
     void set_title();
+    void append_query_bytes(const std::string& bytes);
     void persist();
     void schedule_save();
     void apply_volume_to_player();
@@ -226,6 +240,10 @@ private:
     bool search_inflight_{false};
     bool audio_inflight_{false};
     bool dependencies_checked_{false};
+
+    i18n::Language language_{i18n::Language::English};
+    platform::KeyboardLayout keyboard_layout_{platform::KeyboardLayout::Us};
+    std::function<void()> ui_refresh_callback_;
 
     std::shared_ptr<std::atomic<bool>> alive_;
 

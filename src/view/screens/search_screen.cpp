@@ -8,6 +8,7 @@
 
 #include "asset_manager.h"
 #include "bindings.h"
+#include "i18n.h"
 #include "screen_util.h"
 #include "theme.h"
 
@@ -31,7 +32,7 @@ void SearchScreen::build_content(lv_obj_t* content) {
     const lv_font_t* button_font = util::font(assets(), 12);
     const lv_font_t* hint_font = util::font(assets(), 10, false);
 
-    auto* caption = util::label(content, caption_font, "Search YouTube");
+    auto* caption = util::label(content, caption_font, i18n::tr("Search YouTube"));
     lv_obj_align(caption, LV_ALIGN_TOP_LEFT, 10, 4);
     reactive::bind_theme(caption, view_model().dark_mode_subject(), reactive::ThemeRole::Text);
 
@@ -53,7 +54,7 @@ void SearchScreen::build_content(lv_obj_t* content) {
     lv_obj_set_style_radius(search_button_, 4, 0);
     lv_obj_set_style_bg_opa(search_button_, LV_OPA_COVER, 0);
     lv_obj_add_event_cb(search_button_, search_clicked_cb, LV_EVENT_CLICKED, this);
-    auto* search_label = util::label(search_button_, button_font, "Search");
+    auto* search_label = util::label(search_button_, button_font, i18n::tr("Search"));
     lv_obj_center(search_label);
 
     clear_button_ = lv_obj_create(content);
@@ -65,13 +66,13 @@ void SearchScreen::build_content(lv_obj_t* content) {
                          view_model().dark_mode_subject(),
                          reactive::ThemeRole::Button);
     lv_obj_add_event_cb(clear_button_, clear_clicked_cb, LV_EVENT_CLICKED, this);
-    auto* clear_label = util::label(clear_button_, button_font, "Clear");
+    auto* clear_label = util::label(clear_button_, button_font, i18n::tr("Clear"));
     lv_obj_center(clear_label);
     reactive::bind_theme(clear_label, view_model().dark_mode_subject(), reactive::ThemeRole::Text);
 
     hint_ = util::label(content,
                         hint_font,
-                        "Type a query, then press ENTER to search");
+                        i18n::tr("Type a query, then press ENTER to search"));
     lv_label_set_long_mode(hint_, LV_LABEL_LONG_DOT);
     lv_obj_set_width(hint_, 300);
     lv_obj_set_style_text_align(hint_, LV_TEXT_ALIGN_CENTER, 0);
@@ -93,7 +94,7 @@ void SearchScreen::refresh_query() {
     }
 
     const std::string query = view_model().model().query();
-    std::string text = query.empty() ? "Type to search..." : query;
+    std::string text = query.empty() ? i18n::tr("Type to search...") : query;
     if (!query.empty()) {
         text += "|";
     }

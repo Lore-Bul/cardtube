@@ -7,6 +7,11 @@
 
 namespace platform {
 
+enum class KeyboardLayout {
+    Us,
+    It,
+};
+
 constexpr size_t kNavKeyCount = 5;
 constexpr uint32_t kSpecialKeyBase = 0x200000U;
 constexpr uint32_t kKeyPrintScreen = kSpecialKeyBase | 18U;
@@ -27,6 +32,10 @@ void attach_key_router(lv_indev_t* indev);
 void set_nav_shortcut_mode(bool enabled);
 void register_nav_button(size_t index, lv_obj_t* button);
 void unregister_nav_button(size_t index, lv_obj_t* button);
+
+// Selects the character layout used by the evdev keyboard (US or Italian).
+void set_keyboard_layout(KeyboardLayout layout);
+KeyboardLayout keyboard_layout();
 void set_key_release_listener(KeyReleaseListener listener, void* user_data);
 void clear_key_release_listener(KeyReleaseListener listener, void* user_data);
 void set_global_key_listener(GlobalKeyListener listener, void* user_data);

@@ -27,6 +27,8 @@ public:
     void start();
     void request_page(model::AppPage page);
     void flush_requested_page();
+    // Destroys and recreates the screens so updated UI strings are applied.
+    void rebuild();
     // Shows a page immediately, bypassing the async page switch. Used by the
     // demo/screenshot capture path.
     void show_page_now(model::AppPage page);

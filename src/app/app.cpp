@@ -8,6 +8,7 @@
 
 #include "asset_manager.h"
 #include "help_popup.h"
+#include "i18n.h"
 #include "logger.h"
 #include "linux_input.h"
 #include "screenshot_service.h"
@@ -106,7 +107,7 @@ private:
                 const auto result = platform::screenshot::capture_active_screen();
                 if (result.success) {
                     LOG_INFO("screenshot saved: {}", result.path);
-                    toast_->show_highlighted("Saved to ",
+                    toast_->show_highlighted(i18n::tr("Saved to "),
                                              result.path,
                                              "",
                                              view::widgets::ToastTone::Success,
@@ -115,7 +116,7 @@ private:
                 }
                 else {
                     LOG_WARN("screenshot failed: {}", result.error);
-                    toast_->show("Screenshot failed: " + result.error,
+                    toast_->show(std::string(i18n::tr("Screenshot failed: ")) + result.error,
                                  view::widgets::ToastTone::Error,
                                  3200);
                 }
@@ -176,9 +177,9 @@ private:
 
         exit_key_pressed_ = LV_KEY_ESC;
         exit_armed_ = true;
-        toast_->show_persistent_highlighted("Hold ",
+        toast_->show_persistent_highlighted(i18n::tr("Hold "),
                                             "ESC",
-                                            " to exit",
+                                            i18n::tr(" to exit"),
                                             view::widgets::ToastTone::Warning);
         return true;
     }
@@ -356,6 +357,7 @@ int Application::run() {
 #endif
 
     ScreenManager screen_manager(view_model, assets);
+    view_model.set_ui_refresh_callback([&screen_manager]() { screen_manager.rebuild(); });
     screen_manager.start();
     ShortcutController shortcuts(view_model, assets, demo_mode);
 

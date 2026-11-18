@@ -8,6 +8,7 @@
 
 #include "asset_manager.h"
 #include "bindings.h"
+#include "i18n.h"
 #include "screen_util.h"
 #include "theme.h"
 
@@ -30,7 +31,7 @@ void NowPlayingScreen::build_content(lv_obj_t* content) {
     lv_obj_set_style_clip_corner(image_, true, 0);
     lv_obj_center(image_);
 
-    placeholder_ = util::label(thumb_holder_, util::font(assets(), 12), "no art");
+    placeholder_ = util::label(thumb_holder_, util::font(assets(), 12), i18n::tr("no art"));
     lv_obj_center(placeholder_);
 
     title_ = util::label(content, title_font, "");
@@ -43,7 +44,7 @@ void NowPlayingScreen::build_content(lv_obj_t* content) {
     lv_obj_set_pos(channel_, 92, 33);
     lv_obj_set_size(channel_, 220, 11);
 
-    state_ = util::label(content, state_font, "Stopped");
+    state_ = util::label(content, state_font, i18n::tr("Stopped"));
     lv_obj_set_pos(state_, 92, 44);
     lv_obj_set_size(state_, 220, 11);
 
@@ -66,7 +67,7 @@ void NowPlayingScreen::build_content(lv_obj_t* content) {
 
     hints_ = util::label(content,
                          small_font,
-                         "SPACE pause   LEFT/RIGHT seek 10s   V video   N next");
+                         i18n::tr("SPACE pause   LEFT/RIGHT seek 10s   V video   N next"));
     lv_label_set_long_mode(hints_, LV_LABEL_LONG_DOT);
     lv_obj_set_pos(hints_, 8, 78);
     lv_obj_set_size(hints_, 304, 12);
@@ -95,9 +96,9 @@ void NowPlayingScreen::refresh() {
     lv_obj_set_style_text_color(placeholder_, colors.text_disabled, 0);
 
     if (!track.valid()) {
-        lv_label_set_text(title_, "Nothing is playing yet");
-        lv_label_set_text(channel_, "Pick a result or a queued track");
-        lv_label_set_text(state_, "Stopped");
+        lv_label_set_text(title_, i18n::tr("Nothing is playing yet"));
+        lv_label_set_text(channel_, i18n::tr("Pick a result or a queued track"));
+        lv_label_set_text(state_, i18n::tr("Stopped"));
         lv_label_set_text(time_, "0:00 / 0:00");
         lv_bar_set_value(progress_, 0, LV_ANIM_OFF);
         lv_image_set_src(image_, nullptr);
@@ -110,13 +111,13 @@ void NowPlayingScreen::refresh() {
     lv_label_set_text(channel_, track.channel.c_str());
 
     if (view_model().is_playing()) {
-        lv_label_set_text(state_, "Playing");
+        lv_label_set_text(state_, i18n::tr("Playing"));
     }
     else if (view_model().is_paused()) {
-        lv_label_set_text(state_, "Paused");
+        lv_label_set_text(state_, i18n::tr("Paused"));
     }
     else {
-        lv_label_set_text(state_, "Stopped");
+        lv_label_set_text(state_, i18n::tr("Stopped"));
     }
 
     const int position = lv_subject_get_int(view_model().position_subject());
@@ -134,7 +135,7 @@ void NowPlayingScreen::refresh() {
     else {
         lv_obj_add_flag(image_, LV_OBJ_FLAG_HIDDEN);
         lv_obj_remove_flag(placeholder_, LV_OBJ_FLAG_HIDDEN);
-        lv_label_set_text(placeholder_, "no art");
+        lv_label_set_text(placeholder_, i18n::tr("no art"));
     }
 }
 

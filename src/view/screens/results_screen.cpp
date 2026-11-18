@@ -8,6 +8,7 @@
 
 #include "asset_manager.h"
 #include "bindings.h"
+#include "i18n.h"
 #include "platform/process.h"
 #include "screen_util.h"
 #include "theme.h"
@@ -51,13 +52,13 @@ void ResultsScreen::build_content(lv_obj_t* content) {
         lv_obj_set_size(row.meta, 250, 11);
     }
 
-    empty_label_ = util::label(content, util::font(assets(), 14), "No results yet");
+    empty_label_ = util::label(content, util::font(assets(), 14), i18n::tr("No results yet"));
     lv_obj_align(empty_label_, LV_ALIGN_CENTER, 0, -8);
     reactive::bind_theme(empty_label_, view_model().dark_mode_subject(), reactive::ThemeRole::Text);
 
     empty_hint_ = util::label(content,
                               util::font(assets(), 10, false),
-                              "Type a query on the Search page");
+                              i18n::tr("Type a query on the Search page"));
     lv_obj_align(empty_hint_, LV_ALIGN_CENTER, 0, 12);
     reactive::bind_theme(empty_hint_,
                          view_model().dark_mode_subject(),

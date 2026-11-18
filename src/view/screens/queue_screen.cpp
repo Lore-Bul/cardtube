@@ -8,6 +8,7 @@
 
 #include "asset_manager.h"
 #include "bindings.h"
+#include "i18n.h"
 #include "platform/process.h"
 #include "screen_util.h"
 #include "theme.h"
@@ -22,7 +23,7 @@ void QueueScreen::build_content(lv_obj_t* content) {
     const lv_font_t* title_font = util::font(assets(), 12);
     const lv_font_t* small_font = util::font(assets(), 10, false);
 
-    header_ = util::label(content, header_font, "Queue is empty");
+    header_ = util::label(content, header_font, i18n::tr("Queue is empty"));
     lv_obj_set_pos(header_, 10, 2);
     lv_obj_set_size(header_, 300, 12);
 
@@ -49,13 +50,13 @@ void QueueScreen::build_content(lv_obj_t* content) {
         lv_obj_set_style_text_align(row.duration, LV_TEXT_ALIGN_RIGHT, 0);
     }
 
-    empty_label_ = util::label(content, util::font(assets(), 14), "The queue is empty");
+    empty_label_ = util::label(content, util::font(assets(), 14), i18n::tr("The queue is empty"));
     lv_obj_align(empty_label_, LV_ALIGN_CENTER, 0, -6);
     reactive::bind_theme(empty_label_, view_model().dark_mode_subject(), reactive::ThemeRole::Text);
 
     empty_hint_ = util::label(content,
                               util::font(assets(), 10, false),
-                              "Press Q on a result to queue it");
+                              i18n::tr("Press Q on a result to queue it"));
     lv_obj_align(empty_hint_, LV_ALIGN_CENTER, 0, 14);
     reactive::bind_theme(empty_hint_, view_model().dark_mode_subject(), reactive::ThemeRole::Text);
 
@@ -76,12 +77,13 @@ void QueueScreen::refresh() {
     lv_obj_set_style_text_color(header_, colors.text_disabled, 0);
 
     if (total == 0) {
-        lv_label_set_text(header_, "Queue is empty");
+        lv_label_set_text(header_, i18n::tr("Queue is empty"));
     }
     else {
-        std::string header = std::to_string(total) + (total == 1 ? " track" : " tracks");
+        std::string header =
+            std::to_string(total) + i18n::tr(total == 1 ? " track" : " tracks");
         if (playing >= 0 && playing < total) {
-            header += "  -  playing " + std::to_string(playing + 1);
+            header += i18n::tr("  -  playing ") + std::to_string(playing + 1);
         }
         lv_label_set_text(header_, header.c_str());
     }

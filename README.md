@@ -47,6 +47,8 @@ voce APPLaunch, così l'app compare nel launcher e nello store.
 - **Miniature** scaricate in cache (`<runtime>/thumbs/<id>.jpg`) e mostrate
   nelle liste e nella schermata di riproduzione.
 - **Cinque pagine**: Search, Results, NowPlaying, Queue, Settings.
+- **Interfaccia in italiano o inglese** (`language=en/it`) e **layout tastiera**
+  US o italiano (`keyboard=us/it`) selezionabili dalle Settings.
 - **Tema chiaro/scuro**, volume, qualità e autoplay configurabili e persistiti.
 - **Controllo dipendenze** integrato (presenza di `yt-dlp`, `mpv`, `curl` e
   aggiornamento di `yt-dlp` dalla pagina Settings).
@@ -165,6 +167,11 @@ chiude il player.
 | `I` | Mostra le versioni. |
 | `ESC` | Torna alla ricerca. |
 
+Le righe **Language** e **Keyboard** cambiano al volo l'interfaccia e il layout
+dei caratteri: puoi per esempio usare l'interfaccia in italiano mantenendo la
+tastiera US. La scelta è salvata in `language` e `keyboard` nel file di
+configurazione.
+
 ## Configurazione
 
 Configurazione di sistema: `/etc/cardtube.conf`.
@@ -172,12 +179,15 @@ Configurazione di sistema: `/etc/cardtube.conf`.
 ```ini
 # CardTube configuration
 # dark_mode: yes/no, video_mode: open mpv fullscreen instead of audio only
+# language: en/it, keyboard: us/it (character layout of the device keyboard)
 [application]
 dark_mode=yes
 video_mode=no
 autoplay_next=yes
 volume=80
 quality=best
+language=en
+keyboard=us
 ```
 
 Le modifiche fatte dalla pagina Settings vengono salvate nel file utente:

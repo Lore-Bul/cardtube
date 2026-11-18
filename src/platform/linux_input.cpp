@@ -27,6 +27,7 @@ std::array<lv_obj_t*, kNavKeyCount> nav_buttons{};
 uint32_t last_key = 0;
 bool last_key_pressed = false;
 bool nav_shortcut_mode = false;
+KeyboardLayout g_keyboard_layout = KeyboardLayout::Us;
 uint32_t pressed_key = 0;
 uint32_t press_started_at = 0;
 bool long_press_sent = false;
@@ -198,6 +199,7 @@ uint32_t letter_from_code(uint16_t code, uint16_t first, char base, bool shifted
 
 uint32_t map_evdev_key(uint16_t code) {
     const uint32_t shifted = shift_down ? 1U : 0U;
+    const bool italian = g_keyboard_layout == KeyboardLayout::It;
 
     if (code >= KEY_Q && code <= KEY_P) {
         return letter_from_code(code, KEY_Q, 'q', shift_down);
@@ -210,9 +212,17 @@ uint32_t map_evdev_key(uint16_t code) {
     }
     if (code >= KEY_1 && code <= KEY_0) {
         static constexpr char digits[] = "1234567890";
-        static constexpr char symbols[] = "!@#$%^&*()";
         const auto index = static_cast<size_t>(code - KEY_1);
-        return static_cast<uint8_t>(shift_down ? symbols[index] : digits[index]);
+        if (italian) {
+            static constexpr uint32_t italian_symbols[] = {
+                '!', '"', 0xA3, '$', '%', '&', '/', '(', ')', '='};
+            return shift_down
+                       ? italian_symbols[index]
+                       : static_cast<uint32_t>(static_cast<unsigned char>(digits[index]));
+        }
+        static constexpr char symbols[] = "!@#$%^&*()";
+        return static_cast<uint32_t>(
+            static_cast<unsigned char>(shift_down ? symbols[index] : digits[index]));
     }
 
     switch (code) {
@@ -242,27 +252,56 @@ uint32_t map_evdev_key(uint16_t code) {
         case KEY_SPACE:
             return ' ';
         case KEY_MINUS:
-            return static_cast<uint8_t>(shifted ? '_' : '-');
+            if (italian) {
+                return static_cast<uint32_t>(shifted ? '?' : '\'');
+            }
+            return static_cast<uint32_t>(shifted ? '_' : '-');
         case KEY_EQUAL:
-            return static_cast<uint8_t>(shifted ? '+' : '=');
+            if (italian) {
+                return shifted ? '^' : 0xEC; // ^ or i-grave
+            }
+            return static_cast<uint32_t>(shifted ? '+' : '=');
         case KEY_LEFTBRACE:
-            return static_cast<uint8_t>(shifted ? '{' : '[');
+            if (italian) {
+                return shifted ? 0xE9 : 0xE8; // e-acute or e-grave
+            }
+            return static_cast<uint32_t>(shifted ? '{' : '[');
         case KEY_RIGHTBRACE:
-            return static_cast<uint8_t>(shifted ? '}' : ']');
+            if (italian) {
+                return static_cast<uint32_t>(shifted ? '*' : '+');
+            }
+            return static_cast<uint32_t>(shifted ? '}' : ']');
         case KEY_SEMICOLON:
-            return static_cast<uint8_t>(shifted ? ':' : ';');
+            if (italian) {
+                return shifted ? 0xE7 : 0xF2; // c-cedilla or o-grave
+            }
+            return static_cast<uint32_t>(shifted ? ':' : ';');
         case KEY_APOSTROPHE:
-            return static_cast<uint8_t>(shifted ? '"' : '\'');
+            if (italian) {
+                return shifted ? 0xB0 : 0xE0; // degree or a-grave
+            }
+            return static_cast<uint32_t>(shifted ? '"' : '\'');
         case KEY_GRAVE:
-            return static_cast<uint8_t>(shifted ? '~' : '`');
+            if (italian) {
+                return static_cast<uint32_t>(shifted ? '|' : '\\');
+            }
+            return static_cast<uint32_t>(shifted ? '~' : '`');
         case KEY_BACKSLASH:
-            return static_cast<uint8_t>(shifted ? '|' : '\\');
+            if (italian) {
+                return shifted ? 0xA7 : 0xF9; // section or u-grave
+            }
+            return static_cast<uint32_t>(shifted ? '|' : '\\');
+        case KEY_102ND:
+            if (italian) {
+                return static_cast<uint32_t>(shifted ? '>' : '<');
+            }
+            return 0;
         case KEY_COMMA:
-            return static_cast<uint8_t>(shifted ? '<' : ',');
+            return static_cast<uint32_t>(shifted ? (italian ? ';' : '<') : ',');
         case KEY_DOT:
-            return static_cast<uint8_t>(shifted ? '>' : '.');
+            return static_cast<uint32_t>(shifted ? (italian ? ':' : '>') : '.');
         case KEY_SLASH:
-            return static_cast<uint8_t>(shifted ? '?' : '/');
+            return static_cast<uint32_t>(shifted ? (italian ? '_' : '?') : (italian ? '-' : '/'));
         case KEY_SYSRQ:
             return kKeyPrintScreen;
         case KEY_HELP:
@@ -462,6 +501,14 @@ void attach_key_router(lv_indev_t* indev) {
 
 void set_nav_shortcut_mode(bool enabled) {
     nav_shortcut_mode = enabled;
+}
+
+void set_keyboard_layout(KeyboardLayout layout) {
+    g_keyboard_layout = layout;
+}
+
+KeyboardLayout keyboard_layout() {
+    return g_keyboard_layout;
 }
 
 void register_nav_button(size_t index, lv_obj_t* button) {

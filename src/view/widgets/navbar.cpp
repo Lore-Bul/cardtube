@@ -8,6 +8,7 @@
 
 #include "asset_manager.h"
 #include "bindings.h"
+#include "i18n.h"
 #include "linux_input.h"
 #include "theme.h"
 
@@ -96,7 +97,7 @@ void NavBar::build() {
         tabs_[index] = tab;
 
         auto* label = lv_label_create(tab);
-        lv_label_set_text(label, kTabs[index].label);
+        lv_label_set_text(label, i18n::tr(kTabs[index].label));
         lv_obj_set_style_text_font(label, font, 0);
         lv_obj_center(label);
         labels_[index] = label;

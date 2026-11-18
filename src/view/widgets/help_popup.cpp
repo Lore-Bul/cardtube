@@ -8,6 +8,7 @@
 
 #include "asset_manager.h"
 #include "base_viewmodel.h"
+#include "i18n.h"
 #include "theme.h"
 
 #include <array>
@@ -222,10 +223,12 @@ bool HelpPopup::visible() const {
 
 void HelpPopup::update_rows(model::AppPage page) {
     const auto& help = help_for(page);
-    lv_label_set_text(page_badge_, help.badge);
+    lv_label_set_text(title_, i18n::tr("Keyboard help"));
+    lv_label_set_text(page_badge_, i18n::tr(help.badge));
+    lv_label_set_text(footer_, i18n::tr("HELP / ESC  Close    PRINTSCREEN  Screenshot"));
     for (std::size_t index = 0; index < rows_.size(); ++index) {
         lv_label_set_text(rows_[index].key, help.rows[index].key);
-        lv_label_set_text(rows_[index].action, help.rows[index].action);
+        lv_label_set_text(rows_[index].action, i18n::tr(help.rows[index].action));
     }
 }
 

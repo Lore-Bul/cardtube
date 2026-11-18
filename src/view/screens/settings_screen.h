@@ -20,7 +20,7 @@ protected:
     void build_content(lv_obj_t* content) override;
 
 private:
-    static constexpr int kRowCount = 8;
+    static constexpr int kRowCount = viewmodel::BaseViewModel::kSettingCount;
     static constexpr int kRowHeight = 22;
 
     void refresh();

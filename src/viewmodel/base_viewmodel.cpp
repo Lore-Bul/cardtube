@@ -32,15 +32,15 @@ int page_to_int(model::AppPage page) {
 const char* page_name(model::AppPage page) {
     switch (page) {
         case model::AppPage::Search:
-            return "Search";
+            return i18n::tr("Search");
         case model::AppPage::Results:
-            return "Results";
+            return i18n::tr("Results");
         case model::AppPage::NowPlaying:
-            return "Player";
+            return i18n::tr("Player");
         case model::AppPage::Queue:
-            return "Queue";
+            return i18n::tr("Queue");
         case model::AppPage::Settings:
-            return "Settings";
+            return i18n::tr("Settings");
     }
     return "CardTube";
 }
@@ -48,15 +48,15 @@ const char* page_name(model::AppPage page) {
 const char* page_hint(model::AppPage page) {
     switch (page) {
         case model::AppPage::Search:
-            return "Type a search and press Enter";
+            return i18n::tr("Type a search and press Enter");
         case model::AppPage::Results:
-            return "UP/DOWN select - Enter plays - Q queues - V video";
+            return i18n::tr("UP/DOWN select - Enter plays - Q queues - V video");
         case model::AppPage::NowPlaying:
-            return "SPACE pause - LEFT/RIGHT seek - N next - V video";
+            return i18n::tr("SPACE pause - LEFT/RIGHT seek - N next - V video");
         case model::AppPage::Queue:
-            return "UP/DOWN select - Enter plays - D removes - C clears";
+            return i18n::tr("UP/DOWN select - Enter plays - D removes - C clears");
         case model::AppPage::Settings:
-            return "UP/DOWN select - LEFT/RIGHT changes - Enter confirms";
+            return i18n::tr("UP/DOWN select - LEFT/RIGHT changes - Enter confirms");
     }
     return "CardTube";
 }
@@ -81,7 +81,7 @@ int find_track(const std::vector<model::TrackInfo>& tracks, const std::string& i
 }
 
 std::string quality_display(const std::string& quality) {
-    return quality == "best" ? std::string("Best") : quality;
+    return quality == "best" ? std::string(i18n::tr("Best")) : quality;
 }
 
 const std::string& next_quality(const std::string& current) {
@@ -112,6 +112,8 @@ const std::string& previous_quality(const std::string& current) {
 
 const char* kSettingLabels[BaseViewModel::kSettingCount] = {
     "Theme",
+    "Language",
+    "Keyboard",
     "Video mode",
     "Autoplay next",
     "Volume",
@@ -128,7 +130,7 @@ BaseViewModel::BaseViewModel()
       dark_mode_subject_(true),
       current_page_subject_(page_to_int(model::AppPage::Search)),
       query_subject_(""),
-      status_subject_("Type a search and press Enter"),
+      status_subject_(i18n::tr("Type a search and press Enter")),
       results_version_subject_(0),
       results_count_subject_(0),
       selected_result_subject_(0),
@@ -138,7 +140,7 @@ BaseViewModel::BaseViewModel()
       queue_selection_subject_(0),
       queue_index_subject_(-1),
       now_playing_version_subject_(0),
-      now_playing_title_subject_("Nothing is playing yet"),
+      now_playing_title_subject_(i18n::tr("Nothing is playing yet")),
       now_playing_channel_subject_(""),
       playing_subject_(false),
       paused_subject_(false),
@@ -153,6 +155,7 @@ BaseViewModel::BaseViewModel()
       settings_version_subject_(0),
       quit_requested_subject_(false) {
     alive_ = std::make_shared<std::atomic<bool>>(true);
+    status_text_ = i18n::tr("Type a search and press Enter");
 
     monitor_timer_ = lv_timer_create(monitor_timer_cb, 500, this);
     save_timer_ = lv_timer_create(save_timer_cb, 900, this);
@@ -372,33 +375,50 @@ std::string BaseViewModel::setting_label(int index) const {
     if (index < 0 || index >= kSettingCount) {
         return {};
     }
-    return kSettingLabels[index];
+    return i18n::tr(kSettingLabels[index]);
 }
 
 std::string BaseViewModel::setting_value(int index) const {
     switch (index) {
         case 0:
-            return model_.dark_mode() ? "Dark" : "Light";
+            return i18n::tr(model_.dark_mode() ? "Dark" : "Light");
         case 1:
-            return model_.video_mode() ? "On" : "Off";
+            return i18n::language_name(language_);
         case 2:
-            return model_.autoplay_next() ? "On" : "Off";
+            return keyboard_layout_ == platform::KeyboardLayout::It ? "IT" : "US";
         case 3:
-            return std::to_string(model_.volume()) + "%";
+            return i18n::tr(model_.video_mode() ? "On" : "Off");
         case 4:
-            return quality_display(model_.quality());
+            return i18n::tr(model_.autoplay_next() ? "On" : "Off");
         case 5:
-            if (!dependencies_checked_) {
-                return "Press Enter";
-            }
-            return platform::ytdlp::dependencies().ready() ? "Ready" : "Missing tools";
+            return std::to_string(model_.volume()) + "%";
         case 6:
-            return "Press Enter";
+            return quality_display(model_.quality());
         case 7:
-            return "Press Enter";
+            if (!dependencies_checked_) {
+                return i18n::tr("Press Enter");
+            }
+            return platform::ytdlp::dependencies().ready() ? i18n::tr("Ready")
+                                                         : i18n::tr("Missing tools");
+        case 8:
+            return i18n::tr("Press Enter");
+        case 9:
+            return i18n::tr("Press Enter");
         default:
             return {};
     }
+}
+
+i18n::Language BaseViewModel::language() const {
+    return language_;
+}
+
+platform::KeyboardLayout BaseViewModel::keyboard_layout() const {
+    return keyboard_layout_;
+}
+
+void BaseViewModel::set_ui_refresh_callback(std::function<void()> callback) {
+    ui_refresh_callback_ = std::move(callback);
 }
 
 // ---------------------------------------------------------------------------
@@ -436,7 +456,8 @@ void BaseViewModel::publish_queue() {
 
 void BaseViewModel::publish_now_playing() {
     const auto& track = model_.now_playing();
-    now_playing_title_subject_.set(track.valid() ? track.title.c_str() : "Nothing is playing yet");
+    now_playing_title_subject_.set(track.valid() ? track.title.c_str()
+                                                 : i18n::tr("Nothing is playing yet"));
     now_playing_channel_subject_.set(track.valid() ? track.channel.c_str() : "");
     now_playing_version_subject_.set(now_playing_version_subject_.value() + 1);
 }
@@ -506,24 +527,57 @@ void BaseViewModel::request_quit() {
 // Search
 // ---------------------------------------------------------------------------
 
-void BaseViewModel::append_query_char(char character) {
-    const auto unsigned_character = static_cast<unsigned char>(character);
-    if (unsigned_character < 32 || unsigned_character > 126) {
-        return;
-    }
-    if (model_.query().size() >= 110) {
+void BaseViewModel::append_query_bytes(const std::string& bytes) {
+    if (bytes.empty()) {
         return;
     }
     std::string query = model_.query();
-    query.push_back(character);
+    if (query.size() + bytes.size() > 110) {
+        return;
+    }
+    query += bytes;
     model_.set_query(std::move(query));
     query_subject_.set(model_.query().c_str());
 }
 
-void BaseViewModel::append_query(const std::string& text) {
-    for (const char character : text) {
-        append_query_char(character);
+void BaseViewModel::append_query_char(char character) {
+    const auto unsigned_character = static_cast<unsigned char>(character);
+    if (unsigned_character < 32 || unsigned_character == 127) {
+        return;
     }
+    append_query_bytes(std::string(1, character));
+}
+
+void BaseViewModel::append_query_codepoint(uint32_t codepoint) {
+    if (codepoint < 32 || codepoint == 127 || codepoint > 0x10FFFF ||
+        (codepoint >= 0xD800 && codepoint <= 0xDFFF)) {
+        return;
+    }
+
+    std::string bytes;
+    if (codepoint < 0x80) {
+        bytes.push_back(static_cast<char>(codepoint));
+    }
+    else if (codepoint < 0x800) {
+        bytes.push_back(static_cast<char>(0xC0 | (codepoint >> 6)));
+        bytes.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
+    }
+    else if (codepoint < 0x10000) {
+        bytes.push_back(static_cast<char>(0xE0 | (codepoint >> 12)));
+        bytes.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F)));
+        bytes.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
+    }
+    else {
+        bytes.push_back(static_cast<char>(0xF0 | (codepoint >> 18)));
+        bytes.push_back(static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F)));
+        bytes.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F)));
+        bytes.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
+    }
+    append_query_bytes(bytes);
+}
+
+void BaseViewModel::append_query(const std::string& text) {
+    append_query_bytes(text);
 }
 
 void BaseViewModel::backspace_query() {
@@ -531,7 +585,12 @@ void BaseViewModel::backspace_query() {
         return;
     }
     std::string query = model_.query();
-    query.pop_back();
+    while (!query.empty() && (static_cast<unsigned char>(query.back()) & 0xC0) == 0x80) {
+        query.pop_back();
+    }
+    if (!query.empty()) {
+        query.pop_back();
+    }
     model_.set_query(std::move(query));
     query_subject_.set(model_.query().c_str());
 }
@@ -547,18 +606,18 @@ void BaseViewModel::open_search_page() {
 
 void BaseViewModel::start_search() {
     if (search_inflight_) {
-        set_status("Search already in progress");
+        set_status(i18n::tr("Search already in progress"));
         return;
     }
 
     const std::string query = platform::trim_copy(model_.query());
     if (query.empty()) {
-        set_status("Type something to search");
+        set_status(i18n::tr("Type something to search"));
         return;
     }
 
     search_inflight_ = true;
-    set_status("Searching YouTube for \"" + query + "\"...");
+    set_status(std::string(i18n::tr("Searching YouTube for ")) + "\"" + query + "\"...");
 
     auto alive = alive_;
     platform::submit_background([this, query, alive]() {
@@ -573,7 +632,7 @@ void BaseViewModel::start_search() {
             search_inflight_ = false;
 
             if (!result.ok) {
-                set_status("Search failed: " + result.error);
+                set_status(std::string(i18n::tr("Search failed: ")) + result.error);
                 LOG_WARN("search failed: {}", result.error);
                 return;
             }
@@ -583,7 +642,7 @@ void BaseViewModel::start_search() {
             publish_results();
             set_page(model::AppPage::Results);
             set_status(std::to_string(model_.results().size()) +
-                       " results - Enter plays, Q queues, V video");
+                       i18n::tr(" results - Enter plays, Q queues, V video"));
             prefetch_thumbnails(model_.results());
         });
     });
@@ -656,19 +715,19 @@ void BaseViewModel::enqueue_track(const model::TrackInfo& track) {
 
     auto& queue = model_.queue();
     if (find_track(queue, track.id) >= 0) {
-        set_status("Already in the queue: " + track.title);
+        set_status(std::string(i18n::tr("Already in the queue: ")) + track.title);
         return;
     }
 
     queue.push_back(track);
     publish_queue();
-    set_status("Queued: " + track.title);
+    set_status(std::string(i18n::tr("Queued: ")) + track.title);
 }
 
 void BaseViewModel::enqueue_selected() {
     const auto* track = model_.selected_track();
     if (!track) {
-        set_status("No result selected - run a search first");
+        set_status(i18n::tr("No result selected - run a search first"));
         return;
     }
     enqueue_track(*track);
@@ -698,7 +757,7 @@ void BaseViewModel::play_result(int index) {
 
 void BaseViewModel::play_result_video(int index) {
     if (index < 0 || index >= static_cast<int>(model_.results().size())) {
-        set_status("No result selected");
+        set_status(i18n::tr("No result selected"));
         return;
     }
     model_.set_selected_result(index);
@@ -724,7 +783,7 @@ void BaseViewModel::move_queue_selection(int delta) {
 
 void BaseViewModel::play_queue_index(int index) {
     if (index < 0 || index >= static_cast<int>(model_.queue().size())) {
-        set_status("Nothing to play in the queue");
+        set_status(i18n::tr("Nothing to play in the queue"));
         return;
     }
 
@@ -748,7 +807,7 @@ void BaseViewModel::play_queue_index(int index) {
 void BaseViewModel::remove_queue_selection() {
     auto& queue = model_.queue();
     if (queue.empty()) {
-        set_status("The queue is empty");
+        set_status(i18n::tr("The queue is empty"));
         return;
     }
 
@@ -765,19 +824,19 @@ void BaseViewModel::remove_queue_selection() {
 
     model_.set_queue_selection(std::min(index, static_cast<int>(queue.size()) - 1));
     publish_queue();
-    set_status("Removed: " + title);
+    set_status(std::string(i18n::tr("Removed: ")) + title);
 }
 
 void BaseViewModel::clear_queue() {
     if (model_.queue().empty()) {
-        set_status("The queue is already empty");
+        set_status(i18n::tr("The queue is already empty"));
         return;
     }
     model_.queue().clear();
     model_.set_queue_index(-1);
     model_.set_queue_selection(0);
     publish_queue();
-    set_status("Queue cleared");
+    set_status(i18n::tr("Queue cleared"));
 }
 
 void BaseViewModel::play_next() {
@@ -787,7 +846,7 @@ void BaseViewModel::play_next() {
         play_queue_index(next);
         return;
     }
-    set_status("End of the queue");
+    set_status(i18n::tr("End of the queue"));
 }
 
 void BaseViewModel::play_previous() {
@@ -798,10 +857,10 @@ void BaseViewModel::play_previous() {
     }
     if (platform::mpv::running()) {
         platform::mpv::seek_relative(-1.0e9);
-        set_status("Restarted the current track");
+        set_status(i18n::tr("Restarted the current track"));
     }
     else {
-        set_status("No previous track");
+        set_status(i18n::tr("No previous track"));
     }
 }
 
@@ -811,16 +870,16 @@ void BaseViewModel::play_previous() {
 
 void BaseViewModel::start_audio_playback(const model::TrackInfo& track) {
     if (!track.valid()) {
-        set_status("Invalid track");
+        set_status(i18n::tr("Invalid track"));
         return;
     }
     if (audio_inflight_) {
-        set_status("A track is already loading, try again in a moment");
+        set_status(i18n::tr("A track is already loading, try again in a moment"));
         return;
     }
 
     audio_inflight_ = true;
-    set_status("Loading \"" + track.title + "\"...");
+    set_status(std::string(i18n::tr("Loading ")) + "\"" + track.title + "\"...");
 
     const std::string url = track.url();
     const std::string quality = model_.quality();
@@ -834,7 +893,7 @@ void BaseViewModel::start_audio_playback(const model::TrackInfo& track) {
         if (!platform::mpv::running()) {
             if (!platform::mpv::start(volume)) {
                 ok = false;
-                error = "mpv is not installed or failed to start";
+                error = i18n::tr("mpv is not installed or failed to start");
             }
         }
         else {
@@ -843,7 +902,7 @@ void BaseViewModel::start_audio_playback(const model::TrackInfo& track) {
 
         if (ok && !platform::mpv::load(url, quality)) {
             ok = false;
-            error = "unable to open the audio stream (see /tmp/cardtube/mpv.log)";
+            error = i18n::tr("unable to open the audio stream (see /tmp/cardtube/mpv.log)");
         }
 
         if (!alive->load()) {
@@ -859,22 +918,22 @@ void BaseViewModel::start_audio_playback(const model::TrackInfo& track) {
                 LOG_WARN("audio playback failed: {}", error);
                 return;
             }
-            set_status("Playing - Space pause, N next, V video");
+            set_status(i18n::tr("Playing - Space pause, N next, V video"));
         });
     });
 }
 
 void BaseViewModel::start_video_playback(const model::TrackInfo& track) {
     if (!track.valid()) {
-        set_status("Nothing to watch");
+        set_status(i18n::tr("Nothing to watch"));
         return;
     }
     if (video_attempt_.load() || video_ready_.load()) {
-        set_status("A video is already starting or playing");
+        set_status(i18n::tr("A video is already starting or playing"));
         return;
     }
     if (!platform::command_exists("mpv")) {
-        set_status("mpv is not installed - video playback needs mpv");
+        set_status(i18n::tr("mpv is not installed - video playback needs mpv"));
         return;
     }
 
@@ -901,7 +960,7 @@ void BaseViewModel::start_video_playback(const model::TrackInfo& track) {
     video_ready_.store(false);
     video_cancel_.store(false);
     video_attempt_.store(true);
-    set_status("Starting video... (ESC closes)");
+    set_status(i18n::tr("Starting video... (ESC closes)"));
 
     const std::string url = track.url();
     const std::string quality = model_.quality();
@@ -919,7 +978,7 @@ void BaseViewModel::start_video_playback(const model::TrackInfo& track) {
             video_attempt_.store(false);
             platform::post_to_ui([this, alive]() {
                 if (alive->load()) {
-                    set_status("Video cancelled");
+                    set_status(i18n::tr("Video cancelled"));
                     lv_obj_invalidate(lv_screen_active());
                 }
             });
@@ -939,28 +998,28 @@ void BaseViewModel::start_video_playback(const model::TrackInfo& track) {
 
 void BaseViewModel::toggle_pause() {
     if (!platform::mpv::running()) {
-        set_status("Nothing is playing");
+        set_status(i18n::tr("Nothing is playing"));
         return;
     }
     platform::mpv::toggle_pause();
     const bool now_paused = !paused_subject_.value();
     paused_subject_.set(now_paused);
     playing_subject_.set(!now_paused);
-    set_status(now_paused ? "Paused" : "Playing");
+    set_status(now_paused ? i18n::tr("Paused") : i18n::tr("Playing"));
 }
 
 void BaseViewModel::seek_relative(double seconds) {
     if (!platform::mpv::running() || !model_.now_playing().valid()) {
-        set_status("Nothing is playing");
+        set_status(i18n::tr("Nothing is playing"));
         return;
     }
     platform::mpv::seek_relative(seconds);
-    set_status(seconds < 0.0 ? "Seek -10s" : "Seek +10s");
+    set_status(seconds < 0.0 ? i18n::tr("Seek -10s") : i18n::tr("Seek +10s"));
 }
 
 void BaseViewModel::stop_playback() {
     if (!platform::mpv::running()) {
-        set_status("Nothing is playing");
+        set_status(i18n::tr("Nothing is playing"));
         return;
     }
     platform::mpv::stop_playback();
@@ -968,7 +1027,7 @@ void BaseViewModel::stop_playback() {
     paused_subject_.set(false);
     position_subject_.set(0);
     progress_subject_.set(0);
-    set_status("Playback stopped");
+    set_status(i18n::tr("Playback stopped"));
 }
 
 void BaseViewModel::change_volume(int delta) {
@@ -987,13 +1046,13 @@ void BaseViewModel::set_volume(int percent) {
     schedule_save();
     if (model_.current_page() == model::AppPage::Settings ||
         model_.current_page() == model::AppPage::NowPlaying) {
-        set_status("Volume " + std::to_string(percent) + "%");
+        set_status(std::string(i18n::tr("Volume ")) + std::to_string(percent) + "%");
     }
 }
 
 void BaseViewModel::play_now_as_video() {
     if (!model_.now_playing().valid()) {
-        set_status("Nothing is playing - pick a result first");
+        set_status(i18n::tr("Nothing is playing - pick a result first"));
         return;
     }
     start_video_playback(model_.now_playing());
@@ -1026,31 +1085,41 @@ void BaseViewModel::adjust_setting(int delta) {
             set_dark_mode(delta > 0 ? true : false);
             break;
         case 1:
+            set_language(language_ == i18n::Language::English ? i18n::Language::Italian
+                                                              : i18n::Language::English);
+            return;
+        case 2:
+            set_keyboard_layout(keyboard_layout_ == platform::KeyboardLayout::Us
+                                    ? platform::KeyboardLayout::It
+                                    : platform::KeyboardLayout::Us);
+            return;
+        case 3:
             model_.set_video_mode(delta > 0);
             video_mode_subject_.set(model_.video_mode());
             publish_settings();
             persist();
-            set_status(model_.video_mode() ? "Video mode on - playback opens the video"
-                                           : "Video mode off - audio only");
+            set_status(model_.video_mode() ? i18n::tr("Video mode on - playback opens the video")
+                                           : i18n::tr("Video mode off - audio only"));
             return;
-        case 2:
+        case 4:
             model_.set_autoplay_next(delta > 0);
             autoplay_subject_.set(model_.autoplay_next());
             publish_settings();
             persist();
-            set_status(model_.autoplay_next() ? "Autoplay next: on" : "Autoplay next: off");
+            set_status(model_.autoplay_next() ? i18n::tr("Autoplay next: on")
+                                              : i18n::tr("Autoplay next: off"));
             return;
-        case 3:
+        case 5:
             change_volume(delta);
             return;
-        case 4: {
+        case 6: {
             const std::string& next =
                 delta > 0 ? next_quality(model_.quality()) : previous_quality(model_.quality());
             model_.set_quality(next);
             quality_subject_.set(model_.quality().c_str());
             publish_settings();
             persist();
-            set_status("Quality: " + quality_display(model_.quality()));
+            set_status(std::string(i18n::tr("Quality: ")) + quality_display(model_.quality()));
             return;
         }
         default:
@@ -1065,30 +1134,39 @@ void BaseViewModel::activate_setting() {
             toggle_dark_mode();
             break;
         case 1:
+            set_language(language_ == i18n::Language::English ? i18n::Language::Italian
+                                                              : i18n::Language::English);
+            break;
+        case 2:
+            set_keyboard_layout(keyboard_layout_ == platform::KeyboardLayout::Us
+                                    ? platform::KeyboardLayout::It
+                                    : platform::KeyboardLayout::Us);
+            break;
+        case 3:
             model_.set_video_mode(!model_.video_mode());
             video_mode_subject_.set(model_.video_mode());
             publish_settings();
             persist();
             break;
-        case 2:
+        case 4:
             model_.set_autoplay_next(!model_.autoplay_next());
             autoplay_subject_.set(model_.autoplay_next());
             publish_settings();
             persist();
             break;
-        case 3:
+        case 5:
             change_volume(1);
             break;
-        case 4:
+        case 6:
             adjust_setting(1);
             break;
-        case 5:
+        case 7:
             check_dependencies();
             break;
-        case 6:
+        case 8:
             update_ytdlp();
             break;
-        case 7:
+        case 9:
             request_quit();
             break;
         default:
@@ -1096,8 +1174,42 @@ void BaseViewModel::activate_setting() {
     }
 }
 
+void BaseViewModel::set_language(i18n::Language language) {
+    if (language_ == language) {
+        return;
+    }
+    language_ = language;
+    i18n::set_language(language);
+    persist();
+
+    auto alive = alive_;
+    platform::post_to_ui([this, alive]() {
+        if (!alive->load()) {
+            return;
+        }
+        if (ui_refresh_callback_) {
+            ui_refresh_callback_();
+        }
+        set_title();
+        set_status(std::string(i18n::tr("Language: ")) + i18n::language_name(language_));
+        publish_settings();
+    });
+}
+
+void BaseViewModel::set_keyboard_layout(platform::KeyboardLayout layout) {
+    if (keyboard_layout_ == layout) {
+        return;
+    }
+    keyboard_layout_ = layout;
+    platform::set_keyboard_layout(layout);
+    persist();
+    publish_settings();
+    set_status(std::string(i18n::tr("Keyboard layout: ")) +
+               (layout == platform::KeyboardLayout::It ? "IT" : "US"));
+}
+
 void BaseViewModel::check_dependencies() {
-    set_status("Checking yt-dlp, mpv and curl...");
+    set_status(i18n::tr("Checking yt-dlp, mpv and curl..."));
     auto alive = alive_;
     platform::submit_background([this, alive]() {
         const auto status = platform::ytdlp::dependencies();
@@ -1115,14 +1227,14 @@ void BaseViewModel::check_dependencies() {
                 set_status(summary);
             }
             else {
-                set_status(summary + " - install them with apt or pip");
+                set_status(summary + i18n::tr(" - install them with apt or pip"));
             }
         });
     });
 }
 
 void BaseViewModel::update_ytdlp() {
-    set_status("Updating yt-dlp, this can take a minute...");
+    set_status(i18n::tr("Updating yt-dlp, this can take a minute..."));
     auto alive = alive_;
     platform::submit_background([this, alive]() {
         const auto result = platform::ytdlp::update();
@@ -1140,7 +1252,7 @@ void BaseViewModel::update_ytdlp() {
 }
 
 void BaseViewModel::show_version_info() {
-    set_status("Reading versions...");
+    set_status(i18n::tr("Reading versions..."));
     auto alive = alive_;
     platform::submit_background([this, alive]() {
         const std::string ytdlp_version = platform::ytdlp::version();
@@ -1151,9 +1263,10 @@ void BaseViewModel::show_version_info() {
             if (!alive->load()) {
                 return;
             }
-            std::string message = "CardTube 0.3.0";
+            std::string message = "CardTube ";
+            message += APP_VERSION;
             message += " | yt-dlp ";
-            message += ytdlp_version.empty() ? "not installed" : ytdlp_version;
+            message += ytdlp_version.empty() ? i18n::tr("not installed") : ytdlp_version;
             set_status(message);
         });
     });
@@ -1192,11 +1305,11 @@ bool BaseViewModel::handle_key(uint32_t key, const char* key_name, bool long_pre
             if (key == LV_KEY_ESC) {
                 return false; // the app layer turns this into the exit gesture
             }
-            if (key >= 32 && key <= 126) {
+            if (key >= 32 && key != 127) {
                 if (repeat) {
                     return true;
                 }
-                append_query_char(static_cast<char>(key));
+                append_query_codepoint(key);
                 return true;
             }
             return false;
@@ -1364,7 +1477,16 @@ void BaseViewModel::load_config(const std::string& path) {
     model_.set_autoplay_next(application_config.autoplay_next);
     model_.set_volume(application_config.volume);
     model_.set_quality(config::normalize_quality(application_config.quality));
+
+    language_ = i18n::language_from_code(application_config.language);
+    i18n::set_language(language_);
+    keyboard_layout_ = config::normalize_keyboard_layout(application_config.keyboard_layout) == "it"
+                           ? platform::KeyboardLayout::It
+                           : platform::KeyboardLayout::Us;
+    platform::set_keyboard_layout(keyboard_layout_);
+
     publish_all();
+    set_status(page_hint(model_.current_page()));
     LOG_INFO("loaded config: {}", path);
 }
 
@@ -1383,6 +1505,9 @@ void BaseViewModel::persist() {
     application_config.autoplay_next = model_.autoplay_next();
     application_config.volume = model_.volume();
     application_config.quality = model_.quality();
+    application_config.language = i18n::language_code(language_);
+    application_config.keyboard_layout =
+        keyboard_layout_ == platform::KeyboardLayout::It ? "it" : "us";
 
     std::string error;
     if (!config::save_application_config(config_path_, application_config, error)) {
@@ -1462,10 +1587,11 @@ void BaseViewModel::monitor_timer_cb(lv_timer_t* timer) {
             view_model->play_queue_index(next);
         }
         else if (can_advance) {
-            view_model->set_status("Playback ended early - press N to try the next track");
+            view_model->set_status(
+                i18n::tr("Playback ended early - press N to try the next track"));
         }
         else {
-            view_model->set_status("Finished");
+            view_model->set_status(i18n::tr("Finished"));
         }
     }
 }
@@ -1494,19 +1620,19 @@ void BaseViewModel::finish_video() {
     playing_subject_.set(false);
     paused_subject_.set(true);
     set_page(model::AppPage::NowPlaying);
-    set_status("Video finished - Space resumes audio");
+    set_status(i18n::tr("Video finished - Space resumes audio"));
     lv_obj_invalidate(lv_screen_active());
 }
 
 void BaseViewModel::stop_video() {
     if (video_ready_.load()) {
         platform::video::stop();
-        set_status("Video closed");
+        set_status(i18n::tr("Video closed"));
         return;
     }
     if (video_attempt_.load()) {
         video_cancel_.store(true);
-        set_status("Cancelling video...");
+        set_status(i18n::tr("Cancelling video..."));
     }
 }
 
@@ -1520,7 +1646,7 @@ bool BaseViewModel::take_video_error(std::string& error) {
         error = video_error_;
     }
     set_page(model::AppPage::NowPlaying);
-    set_status("Video failed: " + error);
+    set_status(std::string(i18n::tr("Video failed: ")) + error);
     LOG_WARN("video playback failed: {}", error);
     lv_obj_invalidate(lv_screen_active());
     return true;
@@ -1541,10 +1667,10 @@ void BaseViewModel::startup_check() {
             dependencies_checked_ = true;
             publish_settings();
             if (status.ready()) {
-                set_status("Ready - type a search, Tab switches pages");
+                set_status(i18n::tr("Ready - type a search, Tab switches pages"));
             }
             else {
-                set_status(summary + " - see Settings > Dependencies");
+                set_status(summary + i18n::tr(" - see Settings > Dependencies"));
             }
         });
     });

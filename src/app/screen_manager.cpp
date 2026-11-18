@@ -140,6 +140,38 @@ void ScreenManager::show_page_now(model::AppPage page) {
     flush_requested_page();
 }
 
+void ScreenManager::rebuild() {
+    if (!page_observer_) {
+        return;
+    }
+
+    // Load a throwaway screen first: LVGL must never reference a screen that is
+    // about to be deleted.
+    lv_obj_t* placeholder = lv_obj_create(nullptr);
+    if (placeholder) {
+        lv_obj_remove_style_all(placeholder);
+        lv_screen_load(placeholder);
+    }
+
+    if (current_screen_) {
+        current_screen_->deactivate();
+        current_screen_ = nullptr;
+    }
+    for (auto& screen : screens_) {
+        screen.reset();
+    }
+
+    const auto page = view_model_.model().current_page();
+    requested_page_ = page;
+    loaded_page_ = page;
+    has_loaded_page_ = false;
+    flush_requested_page();
+
+    if (placeholder && lv_obj_is_valid(placeholder)) {
+        lv_obj_delete(placeholder);
+    }
+}
+
 lv_obj_t* ScreenManager::current_screen() const {
     return current_screen_ ? current_screen_->root() : nullptr;
 }

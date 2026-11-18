@@ -77,6 +77,24 @@ std::string normalize_quality(const std::string& quality) {
     return "best";
 }
 
+std::string normalize_language(const std::string& language) {
+    const auto normalized = lowercase(trim(language));
+    if (normalized == "it" || normalized == "ita" || normalized == "italian" ||
+        normalized == "italiano") {
+        return "it";
+    }
+    return "en";
+}
+
+std::string normalize_keyboard_layout(const std::string& layout) {
+    const auto normalized = lowercase(trim(layout));
+    if (normalized == "it" || normalized == "ita" || normalized == "italian" ||
+        normalized == "italiano") {
+        return "it";
+    }
+    return "us";
+}
+
 bool load_application_config(const std::string& path,
                              ApplicationConfig& config,
                              std::string& error) {
@@ -143,6 +161,12 @@ bool load_application_config(const std::string& path,
         else if (key == "quality") {
             config.quality = normalize_quality(value);
         }
+        else if (key == "language") {
+            config.language = normalize_language(value);
+        }
+        else if (key == "keyboard" || key == "keyboard_layout") {
+            config.keyboard_layout = normalize_keyboard_layout(value);
+        }
     }
 
     return true;
@@ -176,7 +200,9 @@ bool save_application_config(const std::string& path,
            << "video_mode=" << (config.video_mode ? "yes" : "no") << "\n"
            << "autoplay_next=" << (config.autoplay_next ? "yes" : "no") << "\n"
            << "volume=" << std::clamp(config.volume, 0, 100) << "\n"
-           << "quality=" << normalize_quality(config.quality) << "\n";
+           << "quality=" << normalize_quality(config.quality) << "\n"
+           << "language=" << normalize_language(config.language) << "\n"
+           << "keyboard=" << normalize_keyboard_layout(config.keyboard_layout) << "\n";
 
     if (!output) {
         error = "failed while writing file";
