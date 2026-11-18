@@ -428,6 +428,7 @@ target_compile_definitions(${PROJECT_NAME}_platform
 target_link_libraries(${PROJECT_NAME}_platform
     PUBLIC
         lvgl
+        logger
 )
 
 # ====================================================
