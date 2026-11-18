@@ -92,9 +92,9 @@ Per la compilazione:
 Copiare il pacchetto e installarlo con `apt`:
 
 ```shell
-scp dist/CardTube_0.4.2_rev1_arm64.deb <utente>@<ip-dispositivo>:~/
+scp dist/CardTube_0.4.3_rev1_arm64.deb <utente>@<ip-dispositivo>:~/
 ssh <utente>@<ip-dispositivo>
-sudo apt install --no-install-recommends ./CardTube_0.4.2_rev1_arm64.deb
+sudo apt install --no-install-recommends ./CardTube_0.4.3_rev1_arm64.deb
 ```
 
 Il pacchetto installa:
@@ -196,6 +196,8 @@ La riga **Audio output** elenca la cassa interna e le cuffie Bluetooth già
 accoppiate: con `Sinistra`/`Destra` si sceglie l'uscita, `Invio` la attiva (o
 connette il dispositivo Bluetooth selezionato) e aggiorna l'elenco. La scelta è
 salvata in `audio_output`; vuoto significa uscita di sistema predefinita.
+Per il Bluetooth CardTube forza il profilo **A2DP** (non il vivavoce HFP) e
+alza il volume del sink se è troppo basso.
 
 ## Log e diagnostica
 

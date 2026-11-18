@@ -4,6 +4,18 @@ Tutte le modifiche rilevanti di CardTube sono annotate in questo file.
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il
 progetto usa il [versionamento semantico](https://semver.org/lang/it/).
 
+## [0.4.3] - 2026-11-19
+
+### Corretto
+
+- Audio Bluetooth: gli auricolari venivano usati nel profilo vivavoce HFP
+  (mono 16 kHz), che suona piano e sottile. Ora CardTube porta la scheda
+  `bluez_card.*` sul profilo **A2DP** (`a2dp-sink`) prima di riprodurre e
+  rilegge il nome del sink se PipeWire lo ricrea.
+- Audio Bluetooth: il volume del sink viene alzato a 100% quando è sotto l'80%
+  (le cuffie avevano il sink al 20%, praticamente inudibile). I sink interni
+  restano invariati, salvo lo 0% che viene riportato al 60%.
+
 ## [0.4.2] - 2026-11-18
 
 ### Corretto

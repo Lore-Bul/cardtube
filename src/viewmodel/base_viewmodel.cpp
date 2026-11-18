@@ -912,14 +912,17 @@ void BaseViewModel::start_audio_playback(const model::TrackInfo& track) {
         if (ok && !audio_sink.empty()) {
             // mpv creates its sink-input only after resolving the stream, so
             // keep the sink as system default and move the stream once it exists.
+            std::string active_sink = audio_sink;
             std::string apply_error;
-            if (!platform::apply_audio_output(audio_sink, apply_error)) {
-                LOG_WARN("unable to select audio output {}: {}", audio_sink, apply_error);
+            if (!platform::apply_audio_output(active_sink, apply_error)) {
+                LOG_WARN("unable to select audio output {}: {}", active_sink, apply_error);
             }
-            const std::string sink = audio_sink;
+            if (active_sink != audio_sink) {
+                platform::mpv::set_audio_device(active_sink);
+            }
             platform::mpv::log_audio_status();
-            platform::submit_background([sink]() {
-                platform::route_audio_streams(sink, 80, 250);
+            platform::submit_background([active_sink]() {
+                platform::route_audio_streams(active_sink, 80, 250);
                 platform::mpv::log_audio_status();
             });
         }
@@ -1351,6 +1354,9 @@ void BaseViewModel::apply_audio_output_index(int index) {
     if (!platform::apply_audio_output(sink, error)) {
         set_status(std::string(i18n::tr("Audio output failed: ")) + error);
         return;
+    }
+    if (output.kind == platform::AudioOutput::Kind::Sink) {
+        persisted = sink;
     }
 
     audio_output_sink_ = persisted;

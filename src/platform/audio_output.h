@@ -40,7 +40,9 @@ std::string default_sink_name();
 bool is_bluetooth_sink(const std::string& sink_name);
 
 // Makes sink_name the default sink and moves CardTube's mpv stream to it.
-bool apply_audio_output(const std::string& sink_name, std::string& error);
+// For a Bluetooth sink the card is switched to its A2DP profile first, so
+// `sink_name` can be updated to the recreated PipeWire node.
+bool apply_audio_output(std::string& sink_name, std::string& error);
 
 // Moves CardTube's existing streams to sink_name, polling until the stream
 // shows up (mpv creates it asynchronously after loadfile). Returns false when

@@ -171,6 +171,148 @@ bool run_pactl(const std::vector<std::string>& args, int timeout_ms, std::string
     return true;
 }
 
+struct CardInfo {
+    std::string name;
+    std::string active_profile;
+    std::vector<std::string> a2dp_profiles;
+};
+
+// The profile list of `pactl list cards` looks like:
+//     Card #57
+//         Name: bluez_card.84_0F_2A_FB_FB_C8
+//         Active Profile: headset-head-unit
+//         Profiles:
+//             headset-head-unit: ... available: yes)
+//             a2dp-sink: ... available: yes)
+std::vector<CardInfo> parse_cards(const std::string& text) {
+    std::vector<CardInfo> cards;
+    CardInfo current;
+    bool active = false;
+    bool in_profiles = false;
+
+    const auto flush = [&]() {
+        if (active && !current.name.empty()) {
+            cards.push_back(current);
+        }
+        current = CardInfo{};
+        active = false;
+        in_profiles = false;
+    };
+
+    std::istringstream stream(text);
+    std::string line;
+    while (std::getline(stream, line)) {
+        const auto trimmed = trim_copy(line);
+        if (starts_with(trimmed, "Card #")) {
+            flush();
+            active = true;
+            continue;
+        }
+        if (!active) {
+            continue;
+        }
+
+        const bool indented = line.size() >= 2 && line[0] == '\t' && line[1] == '\t';
+        if (in_profiles) {
+            if (indented) {
+                const auto colon = trimmed.find(':');
+                if (colon != std::string::npos &&
+                    trimmed.find("available: yes") != std::string::npos) {
+                    const auto profile = trimmed.substr(0, colon);
+                    if (profile.find("a2dp") != std::string::npos) {
+                        current.a2dp_profiles.push_back(profile);
+                    }
+                }
+                continue;
+            }
+            in_profiles = false;
+        }
+
+        if (current.name.empty() && starts_with(trimmed, "Name:")) {
+            current.name = value_after_colon(trimmed);
+        }
+        else if (starts_with(trimmed, "Active Profile:")) {
+            current.active_profile = value_after_colon(trimmed);
+        }
+        else if (trimmed == "Profiles:") {
+            in_profiles = true;
+        }
+    }
+    flush();
+    return cards;
+}
+
+// bluez_output.84_0F_2A_FB_FB_C8.1 -> bluez_card.84_0F_2A_FB_FB_C8
+std::string card_name_for_sink(const std::string& sink) {
+    constexpr const char* prefix = "bluez_output.";
+    if (!starts_with(sink, prefix)) {
+        return {};
+    }
+    const auto rest = sink.substr(std::strlen(prefix));
+    const auto dot = rest.rfind('.');
+    const auto mac = dot == std::string::npos ? rest : rest.substr(0, dot);
+    return "bluez_card." + mac;
+}
+
+// Bluetooth headphones often connect with the HSP/HFP profile (mono 16 kHz,
+// quiet, tinny). Playback must use A2DP instead. `new_sink` receives the sink
+// name after the switch, because PipeWire may recreate the node.
+bool switch_bluetooth_to_a2dp(const std::string& sink, std::string& new_sink) {
+    new_sink = sink;
+    const auto card = card_name_for_sink(sink);
+    if (card.empty()) {
+        return false;
+    }
+
+    const auto result = run_command({"pactl", "list", "cards"}, 6000);
+    if (!result.started || result.exit_code != 0) {
+        return false;
+    }
+
+    for (const auto& info : parse_cards(result.output)) {
+        if (lowercase_copy(info.name) != lowercase_copy(card)) {
+            continue;
+        }
+        if (info.active_profile.find("a2dp") != std::string::npos) {
+            LOG_INFO("bluetooth card {} already uses profile {}", card, info.active_profile);
+            return false;
+        }
+        if (info.a2dp_profiles.empty()) {
+            LOG_WARN("bluetooth card {} exposes no available A2DP profile", card);
+            return false;
+        }
+
+        std::string chosen = info.a2dp_profiles.front();
+        for (const auto& profile : info.a2dp_profiles) {
+            if (profile == "a2dp-sink") {
+                chosen = profile;
+            }
+        }
+
+        std::string error;
+        if (!run_pactl({"set-card-profile", card, chosen}, 6000, error)) {
+            LOG_WARN("pactl set-card-profile {} {} failed: {}", card, chosen, error);
+            return false;
+        }
+        LOG_INFO("bluetooth card {} profile {} -> {}", card, info.active_profile, chosen);
+
+        const auto token = card.substr(std::strlen("bluez_card."));
+        for (int attempt = 0; attempt < 12; ++attempt) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(300));
+            for (const auto& candidate : query_connected_sinks()) {
+                if (lowercase_copy(candidate.sink).find(token) != std::string::npos) {
+                    new_sink = candidate.sink;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    LOG_WARN("bluetooth card {} not found in pactl list cards", card);
+    return false;
+}
+
 std::vector<int> cardtube_streams(const std::string& text) {
     std::vector<int> ids;
     int current = -1;
@@ -239,14 +381,20 @@ void ensure_sink_volume(const std::string& sink) {
         LOG_WARN("pactl get-sink-volume {} failed", sink);
         return;
     }
-    if (percent > 0) {
+
+    // Bluetooth buds often sit at a very low digital gain; their own volume
+    // buttons are separate, so raise the sink itself to a usable level.
+    const bool bluetooth = is_bluetooth_sink(sink);
+    const int minimum = bluetooth ? 80 : 1;
+    if (percent >= minimum) {
         LOG_INFO("sink {} volume: {}%", sink, percent);
         return;
     }
 
+    const char* target = bluetooth ? "100%" : "60%";
     std::string error;
-    if (run_pactl({"set-sink-volume", sink, "60%"}, 5000, error)) {
-        LOG_INFO("sink {} was at 0%, raised to 60%", sink);
+    if (run_pactl({"set-sink-volume", sink, target}, 5000, error)) {
+        LOG_INFO("sink {} was at {}%, raised to {}", sink, percent, target);
     }
     else {
         LOG_WARN("pactl set-sink-volume {} failed: {}", sink, error);
@@ -341,12 +489,21 @@ std::vector<AudioOutput> list_audio_outputs() {
     return sinks;
 }
 
-bool apply_audio_output(const std::string& sink_name, std::string& error) {
+bool apply_audio_output(std::string& sink_name, std::string& error) {
     error.clear();
     if (sink_name.empty()) {
         error = "empty sink name";
         return false;
     }
+
+    if (is_bluetooth_sink(sink_name)) {
+        std::string a2dp_sink;
+        if (switch_bluetooth_to_a2dp(sink_name, a2dp_sink) && a2dp_sink != sink_name) {
+            LOG_INFO("bluetooth sink changed after A2DP switch: {} -> {}", sink_name, a2dp_sink);
+            sink_name = a2dp_sink;
+        }
+    }
+
     if (!run_pactl({"set-default-sink", sink_name}, 6000, error)) {
         LOG_WARN("pactl set-default-sink {} failed: {}", sink_name, error);
         return false;
@@ -391,6 +548,14 @@ bool connect_bluetooth_output(const std::string& address,
             if (lowercase_copy(sink.sink).find(token) != std::string::npos) {
                 sink_name = sink.sink;
                 LOG_INFO("bluetooth sink appeared: {}", sink_name);
+
+                std::string a2dp_sink;
+                if (switch_bluetooth_to_a2dp(sink_name, a2dp_sink) &&
+                    a2dp_sink != sink_name) {
+                    LOG_INFO("bluetooth sink changed after A2DP switch: {} -> {}",
+                             sink_name, a2dp_sink);
+                    sink_name = a2dp_sink;
+                }
                 return true;
             }
         }
