@@ -1,0 +1,37 @@
+{
+  "app_name": "CardTube",
+  "package_name": "cardtube",
+  "version": "0.3.0",
+  "description": "YouTube audio and video player for the Cardputer Zero",
+  "store": {
+    "summary": "YouTube audio e video sul tuo Cardputer Zero",
+    "description": "CardTube trasforma il Cardputer Zero in un lettore YouTube tascabile. Cerca brani e video con yt-dlp, ascolta l'audio con un demone mpv persistente mentre navighi la UI, oppure guarda il video a schermo intero sul display da 320x170. Include coda di riproduzione con avanzamento automatico, miniature, tema chiaro/scuro, controllo delle dipendenze e aggiornamento di yt-dlp dalla pagina Settings.",
+    "categories": [
+      "Media"
+    ],
+    "screenshots": [
+      "screenshot/cardtube_01_search.png",
+      "screenshot/cardtube_02_results.png",
+      "screenshot/cardtube_03_player.png",
+      "screenshot/cardtube_04_queue.png",
+      "screenshot/cardtube_05_settings.png"
+    ],
+    "icon": "assets/images/cardtube.png",
+    "license": "MIT",
+    "source_repo": "https://github.com/Lore-Bul/cardtube",
+    "author": {
+      "github": "Lore-Bul",
+      "display_name": "LoreBul"
+    },
+    "share_code": "CTUB",
+    "permissions": {
+      "camera": false,
+      "microphone": false,
+      "imu": false,
+      "network": true,
+      "additional_hardware": false,
+      "background_service": false,
+      "external_display": false
+    }
+  }
+}

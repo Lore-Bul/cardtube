@@ -1,0 +1,133 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Keep the pip-installed CMake stable across jobs.
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  preflight:
+    name: metadata
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Preflight store metadata
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            python tools/preflight.py --skip-identity
+          else
+            python tools/preflight.py
+          fi
+
+  package:
+    name: aarch64 .deb
+    needs: preflight
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            crossbuild-essential-arm64 \
+            ninja-build \
+            dpkg-dev \
+            python3-pip
+          # CMake >= 3.31 is required by the presets; the distro package is older.
+          pip3 install --break-system-packages "cmake>=3.31"
+
+      - name: Verify tools
+        run: |
+          cmake --version
+          aarch64-linux-gnu-g++ --version
+          ninja --version
+
+      - name: Configure, build and package
+        run: cmake --workflow --preset cp0-cross-package
+
+      - name: Validate store manifest
+        run: cmake -P .agents/skills/cardputerzero-package-release/scripts/validate_app_builder.cmake
+
+      - name: Inspect package
+        run: |
+          for pkg in dist/*.deb; do
+            dpkg-deb -f "$pkg"
+            dpkg-deb -c "$pkg"
+          done
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardtube-deb
+          path: dist/*.deb
+          if-no-files-found: error
+
+  desktop:
+    name: desktop x86-64
+    needs: preflight
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build \
+            g++ \
+            libsdl2-dev \
+            libfreetype-dev \
+            libpng-dev \
+            libjpeg-dev \
+            libfmt-dev \
+            zlib1g-dev \
+            python3-pip
+          pip3 install --break-system-packages "cmake>=3.31"
+
+      - name: Configure
+        run: cmake --preset linux-x86-64
+
+      - name: Build
+        run: cmake --build --preset linux-x86-64-rel
+
+  release:
+    name: GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [package, desktop]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download package
+        uses: actions/download-artifact@v4
+        with:
+          name: cardtube-deb
+          path: dist
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.deb
+          generate_release_notes: true
