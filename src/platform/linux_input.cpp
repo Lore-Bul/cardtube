@@ -1,11 +1,14 @@
 #include "linux_input.h"
 
+#include "keyboard_map.h"
+
 #include <array>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 
 #if !USE_DESKTOP
+#include <cctype>
 #include <cerrno>
 #include <dirent.h>
 #include <fcntl.h>
@@ -27,7 +30,6 @@ std::array<lv_obj_t*, kNavKeyCount> nav_buttons{};
 uint32_t last_key = 0;
 bool last_key_pressed = false;
 bool nav_shortcut_mode = false;
-KeyboardLayout g_keyboard_layout = KeyboardLayout::Us;
 uint32_t pressed_key = 0;
 uint32_t press_started_at = 0;
 bool long_press_sent = false;
@@ -43,12 +45,16 @@ constexpr uint32_t kLongPressMs = 700;
 #if !USE_DESKTOP
 struct EvdevKeypad {
     int fd{-1};
+    bool cardputer{false};
     lv_indev_state_t state{LV_INDEV_STATE_RELEASED};
     uint32_t key{0};
     bool router_event_pending{false};
     uint32_t router_key{0};
     bool router_pressed{false};
     bool router_repeat{false};
+    // Remembers the character produced on press so that release and repeat
+    // events keep it even if Shift changed in between.
+    std::array<uint32_t, KEY_MAX + 1> mapped{};
 };
 
 std::vector<EvdevKeypad*> keypads;
@@ -182,139 +188,29 @@ void key_event_cb(lv_event_t* event) {
 }
 
 #if !USE_DESKTOP
-uint32_t letter_from_code(uint16_t code, uint16_t first, char base, bool shifted) {
-    if (code < first) {
-        return 0;
-    }
-    const uint32_t offset = code - first;
-    if (offset > 25) {
-        return 0;
-    }
-    char character = static_cast<char>(base + offset);
-    if (shifted && character >= 'a' && character <= 'z') {
-        character = static_cast<char>(character - 'a' + 'A');
-    }
-    return static_cast<uint8_t>(character);
-}
-
-uint32_t map_evdev_key(uint16_t code) {
-    const uint32_t shifted = shift_down ? 1U : 0U;
-    const bool italian = g_keyboard_layout == KeyboardLayout::It;
-
-    if (code >= KEY_Q && code <= KEY_P) {
-        return letter_from_code(code, KEY_Q, 'q', shift_down);
-    }
-    if (code >= KEY_A && code <= KEY_L) {
-        return letter_from_code(code, KEY_A, 'a', shift_down);
-    }
-    if (code >= KEY_Z && code <= KEY_M) {
-        return letter_from_code(code, KEY_Z, 'z', shift_down);
-    }
-    if (code >= KEY_1 && code <= KEY_0) {
-        static constexpr char digits[] = "1234567890";
-        const auto index = static_cast<size_t>(code - KEY_1);
-        if (italian) {
-            static constexpr uint32_t italian_symbols[] = {
-                '!', '"', 0xA3, '$', '%', '&', '/', '(', ')', '='};
-            return shift_down
-                       ? italian_symbols[index]
-                       : static_cast<uint32_t>(static_cast<unsigned char>(digits[index]));
-        }
-        static constexpr char symbols[] = "!@#$%^&*()";
-        return static_cast<uint32_t>(
-            static_cast<unsigned char>(shift_down ? symbols[index] : digits[index]));
+// The CardputerZero keyboard (tca8418c) has the kernel driver emit the already
+// selected "Sym" layer as vendor keycodes that overlap with ordinary evdev codes
+// (26 is "[" on a USB keyboard but "!" here), so the symbol table in
+// keyboard_map.cpp must only be applied to that built-in keyboard.
+bool is_cardputer_keyboard(const char* name) {
+    if (!name || name[0] == '\0') {
+        return false;
     }
 
-    switch (code) {
-        case KEY_ESC:
-            return LV_KEY_ESC;
-        case KEY_LEFT:
-            return LV_KEY_LEFT;
-        case KEY_RIGHT:
-            return LV_KEY_RIGHT;
-        case KEY_UP:
-            return LV_KEY_UP;
-        case KEY_DOWN:
-            return LV_KEY_DOWN;
-        case KEY_HOME:
-            return LV_KEY_HOME;
-        case KEY_END:
-            return LV_KEY_END;
-        case KEY_DELETE:
-            return LV_KEY_DEL;
-        case KEY_ENTER:
-        case KEY_KPENTER:
-            return LV_KEY_ENTER;
-        case KEY_BACKSPACE:
-            return LV_KEY_BACKSPACE;
-        case KEY_TAB:
-            return shifted ? LV_KEY_PREV : LV_KEY_NEXT;
-        case KEY_SPACE:
-            return ' ';
-        case KEY_MINUS:
-            if (italian) {
-                return static_cast<uint32_t>(shifted ? '?' : '\'');
-            }
-            return static_cast<uint32_t>(shifted ? '_' : '-');
-        case KEY_EQUAL:
-            if (italian) {
-                return shifted ? '^' : 0xEC; // ^ or i-grave
-            }
-            return static_cast<uint32_t>(shifted ? '+' : '=');
-        case KEY_LEFTBRACE:
-            if (italian) {
-                return shifted ? 0xE9 : 0xE8; // e-acute or e-grave
-            }
-            return static_cast<uint32_t>(shifted ? '{' : '[');
-        case KEY_RIGHTBRACE:
-            if (italian) {
-                return static_cast<uint32_t>(shifted ? '*' : '+');
-            }
-            return static_cast<uint32_t>(shifted ? '}' : ']');
-        case KEY_SEMICOLON:
-            if (italian) {
-                return shifted ? 0xE7 : 0xF2; // c-cedilla or o-grave
-            }
-            return static_cast<uint32_t>(shifted ? ':' : ';');
-        case KEY_APOSTROPHE:
-            if (italian) {
-                return shifted ? 0xB0 : 0xE0; // degree or a-grave
-            }
-            return static_cast<uint32_t>(shifted ? '"' : '\'');
-        case KEY_GRAVE:
-            if (italian) {
-                return static_cast<uint32_t>(shifted ? '|' : '\\');
-            }
-            return static_cast<uint32_t>(shifted ? '~' : '`');
-        case KEY_BACKSLASH:
-            if (italian) {
-                return shifted ? 0xA7 : 0xF9; // section or u-grave
-            }
-            return static_cast<uint32_t>(shifted ? '|' : '\\');
-        case KEY_102ND:
-            if (italian) {
-                return static_cast<uint32_t>(shifted ? '>' : '<');
-            }
-            return 0;
-        case KEY_COMMA:
-            return static_cast<uint32_t>(shifted ? (italian ? ';' : '<') : ',');
-        case KEY_DOT:
-            return static_cast<uint32_t>(shifted ? (italian ? ':' : '>') : '.');
-        case KEY_SLASH:
-            return static_cast<uint32_t>(shifted ? (italian ? '_' : '?') : (italian ? '-' : '/'));
-        case KEY_SYSRQ:
-            return kKeyPrintScreen;
-        case KEY_HELP:
-            return kKeyHelp;
-        default:
-            return 0;
+    std::string lower;
+    for (const char* cursor = name; *cursor != '\0'; ++cursor) {
+        lower.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(*cursor))));
     }
+    return lower.find("tca8418") != std::string::npos;
 }
 
 bool next_event(EvdevKeypad& keypad, uint32_t& key, bool& pressed, bool& repeat) {
     input_event input{};
     while (read(keypad.fd, &input, sizeof(input)) == sizeof(input)) {
         if (input.type != EV_KEY) {
+            continue;
+        }
+        if (input.code > KEY_MAX) {
             continue;
         }
 
@@ -333,7 +229,22 @@ bool next_event(EvdevKeypad& keypad, uint32_t& key, bool& pressed, bool& repeat)
             continue;
         }
 
-        const auto mapped = map_evdev_key(input.code);
+        uint32_t mapped = 0;
+        if (input.value == 2) {
+            // Repeats reuse the character selected when the key went down.
+            mapped = keypad.mapped[input.code];
+        }
+        else {
+            mapped = platform::map_evdev_key(input.code, shift_down, keypad.cardputer);
+            if (input.value == 0) {
+                const uint32_t pressed_code = keypad.mapped[input.code];
+                keypad.mapped[input.code] = 0;
+                mapped = pressed_code;
+            }
+            else {
+                keypad.mapped[input.code] = mapped;
+            }
+        }
         if (!mapped) {
             continue;
         }
@@ -408,9 +319,10 @@ void evdev_delete_cb(lv_event_t* event) {
     delete keypad;
 }
 
-lv_indev_t* create_keypad_from_fd(int fd) {
+lv_indev_t* create_keypad_from_fd(int fd, bool cardputer) {
     auto* keypad = new EvdevKeypad;
     keypad->fd = fd;
+    keypad->cardputer = cardputer;
 
     auto* indev = lv_indev_create();
     if (!indev) {
@@ -444,8 +356,17 @@ lv_indev_t* try_create_keypad(const char* path) {
         return nullptr;
     }
 
-    LV_LOG_INFO("using evdev key input %s", path);
-    return create_keypad_from_fd(fd);
+    char name[256] = {};
+    if (ioctl(fd, EVIOCGNAME(sizeof(name) - 1), name) < 0) {
+        name[0] = '\0';
+    }
+    const bool cardputer = is_cardputer_keyboard(name);
+
+    LV_LOG_INFO("using evdev key input %s (%s%s)",
+                path,
+                name[0] != '\0' ? name : "unknown",
+                cardputer ? ", CardputerZero symbols" : "");
+    return create_keypad_from_fd(fd, cardputer);
 }
 
 void discover_keypads(lv_display_t* display) {
@@ -501,14 +422,6 @@ void attach_key_router(lv_indev_t* indev) {
 
 void set_nav_shortcut_mode(bool enabled) {
     nav_shortcut_mode = enabled;
-}
-
-void set_keyboard_layout(KeyboardLayout layout) {
-    g_keyboard_layout = layout;
-}
-
-KeyboardLayout keyboard_layout() {
-    return g_keyboard_layout;
 }
 
 void register_nav_button(size_t index, lv_obj_t* button) {
@@ -596,6 +509,18 @@ const char* describe_key(uint32_t key) {
             return "PrintScreen";
         case kKeyHelp:
             return "Help";
+        case kKeyMute:
+            return "Mute";
+        case kKeyVolumeDown:
+            return "VolumeDown";
+        case kKeyVolumeUp:
+            return "VolumeUp";
+        case kKeyPlayPause:
+            return "PlayPause";
+        case kKeyPreviousTrack:
+            return "PreviousTrack";
+        case kKeyNextTrack:
+            return "NextTrack";
         case ' ':
             return "Space";
         default:

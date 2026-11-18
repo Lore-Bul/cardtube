@@ -17,7 +17,6 @@ struct ApplicationConfig {
     int volume = 80;
     std::string quality = "best";
     std::string language = "en";
-    std::string keyboard_layout = "us";
     std::string audio_output;
 };
 
@@ -37,8 +36,5 @@ std::string normalize_quality(const std::string& quality);
 
 // Language token: "it"/"italian" -> it, anything else -> en.
 std::string normalize_language(const std::string& language);
-
-// Keyboard layout token: "it" -> it, anything else -> us.
-std::string normalize_keyboard_layout(const std::string& layout);
 
 } // namespace config

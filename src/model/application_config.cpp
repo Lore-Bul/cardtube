@@ -86,15 +86,6 @@ std::string normalize_language(const std::string& language) {
     return "en";
 }
 
-std::string normalize_keyboard_layout(const std::string& layout) {
-    const auto normalized = lowercase(trim(layout));
-    if (normalized == "it" || normalized == "ita" || normalized == "italian" ||
-        normalized == "italiano") {
-        return "it";
-    }
-    return "us";
-}
-
 bool load_application_config(const std::string& path,
                              ApplicationConfig& config,
                              std::string& error) {
@@ -164,9 +155,6 @@ bool load_application_config(const std::string& path,
         else if (key == "language") {
             config.language = normalize_language(value);
         }
-        else if (key == "keyboard" || key == "keyboard_layout") {
-            config.keyboard_layout = normalize_keyboard_layout(value);
-        }
         else if (key == "audio_output" || key == "output") {
             config.audio_output = trim(value);
         }
@@ -205,7 +193,6 @@ bool save_application_config(const std::string& path,
            << "volume=" << std::clamp(config.volume, 0, 100) << "\n"
            << "quality=" << normalize_quality(config.quality) << "\n"
            << "language=" << normalize_language(config.language) << "\n"
-           << "keyboard=" << normalize_keyboard_layout(config.keyboard_layout) << "\n"
            << "audio_output=" << trim(config.audio_output) << "\n";
 
     if (!output) {

@@ -47,11 +47,15 @@ voce APPLaunch, così l'app compare nel launcher e nello store.
 - **Miniature** scaricate in cache (`<runtime>/thumbs/<id>.jpg`) e mostrate
   nelle liste e nella schermata di riproduzione.
 - **Cinque pagine**: Search, Results, NowPlaying, Queue, Settings.
-- **Interfaccia in italiano o inglese** (`language=en/it`) e **layout tastiera**
-  US o italiano (`keyboard=us/it`) selezionabili dalle Settings.
+- **Interfaccia in italiano o inglese** (`language=en/it`) selezionabile dalle
+  Settings.
+- **Tastiera integrata CardputerZero** decodificata con la mappa ufficiale
+  M5Stack: i simboli del layer **Sym** (`!@#$%^&*()[]{}` …) e i tasti
+  multimediali **Fn** (play/pausa, precedente, successivo, mute, volume)
+  funzionano in ogni pagina. La mappa non altera eventuali tastiere USB esterne.
 - **Uscita audio selezionabile**: cassa interna oppure cuffie/speaker Bluetooth
   già accoppiati, con connessione dalle Settings e passaggio immediato dello
-  stream `mpv` (PipeWire/PulseAudio).
+  stream `mpv` (PipeWire/PulseAudio, incluso il target esplicito `audio-device`).
 - **Tema chiaro/scuro**, volume, qualità e autoplay configurabili e persistiti.
 - **Controllo dipendenze** integrato (presenza di `yt-dlp`, `mpv`, `curl` e
   aggiornamento di `yt-dlp` dalla pagina Settings).
@@ -88,9 +92,9 @@ Per la compilazione:
 Copiare il pacchetto e installarlo con `apt`:
 
 ```shell
-scp dist/CardTube_0.3.0_rev1_arm64.deb <utente>@<ip-dispositivo>:~/
+scp dist/CardTube_0.4.1_rev1_arm64.deb <utente>@<ip-dispositivo>:~/
 ssh <utente>@<ip-dispositivo>
-sudo apt install --no-install-recommends ./CardTube_0.3.0_rev1_arm64.deb
+sudo apt install --no-install-recommends ./CardTube_0.4.1_rev1_arm64.deb
 ```
 
 Il pacchetto installa:
@@ -115,6 +119,18 @@ Per un avvio automatico in installazioni embedded riconfigura con
 indietro; sulla pagina Search una pressione breve "arma" l'uscita (un secondo
 `ESC` o una pressione lunga chiude l'app). Durante la riproduzione video `ESC`
 chiude il player.
+
+### Tastiera integrata
+
+Il Cardputer Zero ha 46 tasti senza punteggiatura dedicata. CardTube decodifica
+la tastiera `tca8418` con la mappa ufficiale M5Stack:
+
+- **Shift** produce maiuscole e i simboli della fila numerica (`!@#$%^&*()`).
+- **Sym** attiva i simboli blu stampati sui tasti: `` ` ~ ! @ # $ % ^ & * ( ) - _ = + [ ] { } ; : ' " , . / \ | < > ? ``.
+- **Fn** attiva i tasti arancioni. CardTube gestisce `Fn+Q/W/E` (play-pausa,
+  precedente, successivo), `Fn+A/S/D` (mute, volume giù, volume su) e le frecce
+  `Fn+F/X/Z/C`, oltre a `Fn+H` (aiuto), `Fn+J` (screenshot) e `Fn+Backspace`
+  (Canc).
 
 ### Search
 
@@ -170,9 +186,8 @@ chiude il player.
 | `I` | Mostra le versioni. |
 | `ESC` | Torna alla ricerca. |
 
-Le righe **Language** e **Keyboard** cambiano al volo l'interfaccia e il layout
-dei caratteri: puoi per esempio usare l'interfaccia in italiano mantenendo la
-tastiera US. La scelta è salvata in `language` e `keyboard` nel file di
+Le righe **Language** e **Audio output** cambiano al volo rispettivamente
+l'interfaccia e l'uscita audio. La lingua è salvata in `language` nel file di
 configurazione.
 
 La riga **Audio output** elenca la cassa interna e le cuffie Bluetooth già
@@ -187,7 +202,7 @@ Configurazione di sistema: `/etc/cardtube.conf`.
 ```ini
 # CardTube configuration
 # dark_mode: yes/no, video_mode: open mpv fullscreen instead of audio only
-# language: en/it, keyboard: us/it (character layout of the device keyboard)
+# language: en/it
 # audio_output: PipeWire/PulseAudio sink name; empty = system default
 [application]
 dark_mode=yes
@@ -196,7 +211,6 @@ autoplay_next=yes
 volume=80
 quality=best
 language=en
-keyboard=us
 audio_output=
 ```
 

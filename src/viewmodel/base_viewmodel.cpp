@@ -113,7 +113,6 @@ const std::string& previous_quality(const std::string& current) {
 const char* kSettingLabels[BaseViewModel::kSettingCount] = {
     "Theme",
     "Language",
-    "Keyboard",
     "Video mode",
     "Autoplay next",
     "Volume",
@@ -387,26 +386,24 @@ std::string BaseViewModel::setting_value(int index) const {
         case 1:
             return i18n::language_name(language_);
         case 2:
-            return keyboard_layout_ == platform::KeyboardLayout::It ? "IT" : "US";
-        case 3:
             return i18n::tr(model_.video_mode() ? "On" : "Off");
-        case 4:
+        case 3:
             return i18n::tr(model_.autoplay_next() ? "On" : "Off");
-        case 5:
+        case 4:
             return std::to_string(model_.volume()) + "%";
-        case 6:
+        case 5:
             return audio_output_name(audio_output_selection_);
-        case 7:
+        case 6:
             return quality_display(model_.quality());
-        case 8:
+        case 7:
             if (!dependencies_checked_) {
                 return i18n::tr("Press Enter");
             }
             return platform::ytdlp::dependencies().ready() ? i18n::tr("Ready")
                                                          : i18n::tr("Missing tools");
-        case 9:
+        case 8:
             return i18n::tr("Press Enter");
-        case 10:
+        case 9:
             return i18n::tr("Press Enter");
         default:
             return {};
@@ -415,10 +412,6 @@ std::string BaseViewModel::setting_value(int index) const {
 
 i18n::Language BaseViewModel::language() const {
     return language_;
-}
-
-platform::KeyboardLayout BaseViewModel::keyboard_layout() const {
-    return keyboard_layout_;
 }
 
 void BaseViewModel::set_ui_refresh_callback(std::function<void()> callback) {
@@ -888,9 +881,10 @@ void BaseViewModel::start_audio_playback(const model::TrackInfo& track) {
     const std::string url = track.url();
     const std::string quality = model_.quality();
     const int volume = model_.volume();
+    const std::string audio_sink = audio_output_sink_;
     auto alive = alive_;
 
-    platform::submit_background([this, url, quality, volume, alive]() {
+    platform::submit_background([this, url, quality, volume, audio_sink, alive]() {
         std::string error;
         bool ok = true;
 
@@ -902,6 +896,12 @@ void BaseViewModel::start_audio_playback(const model::TrackInfo& track) {
         }
         else {
             platform::mpv::set_volume(volume);
+        }
+
+        if (ok) {
+            // Keep the selected sink even for a freshly created stream: the
+            // session manager may remember the previous target otherwise.
+            platform::mpv::set_audio_device(audio_sink);
         }
 
         if (ok && !platform::mpv::load(url, quality)) {
@@ -1038,6 +1038,20 @@ void BaseViewModel::change_volume(int delta) {
     set_volume(model_.volume() + delta * 5);
 }
 
+void BaseViewModel::toggle_mute() {
+    if (muted_) {
+        muted_ = false;
+        set_volume(volume_before_mute_);
+        set_status(i18n::tr("Unmuted"));
+    }
+    else {
+        volume_before_mute_ = model_.volume() > 0 ? model_.volume() : 80;
+        muted_ = true;
+        set_volume(0);
+        set_status(i18n::tr("Muted"));
+    }
+}
+
 void BaseViewModel::set_volume(int percent) {
     percent = std::clamp(percent, 0, 100);
     if (model_.volume() == percent) {
@@ -1093,11 +1107,6 @@ void BaseViewModel::adjust_setting(int delta) {
                                                               : i18n::Language::English);
             return;
         case 2:
-            set_keyboard_layout(keyboard_layout_ == platform::KeyboardLayout::Us
-                                    ? platform::KeyboardLayout::It
-                                    : platform::KeyboardLayout::Us);
-            return;
-        case 3:
             model_.set_video_mode(delta > 0);
             video_mode_subject_.set(model_.video_mode());
             publish_settings();
@@ -1105,7 +1114,7 @@ void BaseViewModel::adjust_setting(int delta) {
             set_status(model_.video_mode() ? i18n::tr("Video mode on - playback opens the video")
                                            : i18n::tr("Video mode off - audio only"));
             return;
-        case 4:
+        case 3:
             model_.set_autoplay_next(delta > 0);
             autoplay_subject_.set(model_.autoplay_next());
             publish_settings();
@@ -1113,10 +1122,10 @@ void BaseViewModel::adjust_setting(int delta) {
             set_status(model_.autoplay_next() ? i18n::tr("Autoplay next: on")
                                               : i18n::tr("Autoplay next: off"));
             return;
-        case 5:
+        case 4:
             change_volume(delta);
             return;
-        case 6: {
+        case 5: {
             if (audio_outputs_.size() < 2) {
                 refresh_audio_outputs(true);
                 return;
@@ -1133,7 +1142,7 @@ void BaseViewModel::adjust_setting(int delta) {
             apply_audio_output_index(audio_output_selection_);
             return;
         }
-        case 7: {
+        case 6: {
             const std::string& next =
                 delta > 0 ? next_quality(model_.quality()) : previous_quality(model_.quality());
             model_.set_quality(next);
@@ -1159,26 +1168,21 @@ void BaseViewModel::activate_setting() {
                                                               : i18n::Language::English);
             break;
         case 2:
-            set_keyboard_layout(keyboard_layout_ == platform::KeyboardLayout::Us
-                                    ? platform::KeyboardLayout::It
-                                    : platform::KeyboardLayout::Us);
-            break;
-        case 3:
             model_.set_video_mode(!model_.video_mode());
             video_mode_subject_.set(model_.video_mode());
             publish_settings();
             persist();
             break;
-        case 4:
+        case 3:
             model_.set_autoplay_next(!model_.autoplay_next());
             autoplay_subject_.set(model_.autoplay_next());
             publish_settings();
             persist();
             break;
-        case 5:
+        case 4:
             change_volume(1);
             break;
-        case 6: {
+        case 5: {
             if (audio_output_selection_ >= 0 &&
                 audio_output_selection_ < static_cast<int>(audio_outputs_.size()) &&
                 audio_outputs_[static_cast<std::size_t>(audio_output_selection_)].kind ==
@@ -1190,16 +1194,16 @@ void BaseViewModel::activate_setting() {
             }
             break;
         }
-        case 7:
+        case 6:
             adjust_setting(1);
             break;
-        case 8:
+        case 7:
             check_dependencies();
             break;
-        case 9:
+        case 8:
             update_ytdlp();
             break;
-        case 10:
+        case 9:
             request_quit();
             break;
         default:
@@ -1227,18 +1231,6 @@ void BaseViewModel::set_language(i18n::Language language) {
         set_status(std::string(i18n::tr("Language: ")) + i18n::language_name(language_));
         publish_settings();
     });
-}
-
-void BaseViewModel::set_keyboard_layout(platform::KeyboardLayout layout) {
-    if (keyboard_layout_ == layout) {
-        return;
-    }
-    keyboard_layout_ = layout;
-    platform::set_keyboard_layout(layout);
-    persist();
-    publish_settings();
-    set_status(std::string(i18n::tr("Keyboard layout: ")) +
-               (layout == platform::KeyboardLayout::It ? "IT" : "US"));
 }
 
 std::string BaseViewModel::audio_output_name(int index) const {
@@ -1348,6 +1340,7 @@ void BaseViewModel::apply_audio_output_index(int index) {
 
     audio_output_sink_ = persisted;
     audio_output_selection_ = index;
+    platform::mpv::set_audio_device(audio_output_sink_);
     persist();
     publish_settings();
     set_status(std::string(i18n::tr("Audio output: ")) + audio_output_name(index));
@@ -1376,6 +1369,9 @@ void BaseViewModel::connect_audio_output(int index) {
         const bool connected = platform::connect_bluetooth_output(output.address, sink, error);
         std::string apply_error;
         const bool applied = connected && platform::apply_audio_output(sink, apply_error);
+        if (applied) {
+            platform::mpv::set_audio_device(sink);
+        }
         if (!alive->load()) {
             return;
         }
@@ -1484,6 +1480,32 @@ bool BaseViewModel::handle_key(uint32_t key, const char* key_name, bool long_pre
     }
     if (key == LV_KEY_PREV) {
         cycle_page(-1);
+        return true;
+    }
+
+    // Fn media keys of the built-in keyboard work on every page.
+    if (key == platform::kKeyPlayPause) {
+        toggle_pause();
+        return true;
+    }
+    if (key == platform::kKeyNextTrack) {
+        play_next();
+        return true;
+    }
+    if (key == platform::kKeyPreviousTrack) {
+        play_previous();
+        return true;
+    }
+    if (key == platform::kKeyMute) {
+        toggle_mute();
+        return true;
+    }
+    if (key == platform::kKeyVolumeUp) {
+        change_volume(1);
+        return true;
+    }
+    if (key == platform::kKeyVolumeDown) {
+        change_volume(-1);
         return true;
     }
 
@@ -1675,10 +1697,6 @@ void BaseViewModel::load_config(const std::string& path) {
 
     language_ = i18n::language_from_code(application_config.language);
     i18n::set_language(language_);
-    keyboard_layout_ = config::normalize_keyboard_layout(application_config.keyboard_layout) == "it"
-                           ? platform::KeyboardLayout::It
-                           : platform::KeyboardLayout::Us;
-    platform::set_keyboard_layout(keyboard_layout_);
 
     audio_output_sink_ = application_config.audio_output;
     if (!audio_output_sink_.empty()) {
@@ -1710,8 +1728,6 @@ void BaseViewModel::persist() {
     application_config.volume = model_.volume();
     application_config.quality = model_.quality();
     application_config.language = i18n::language_code(language_);
-    application_config.keyboard_layout =
-        keyboard_layout_ == platform::KeyboardLayout::It ? "it" : "us";
     application_config.audio_output = audio_output_sink_;
 
     std::string error;

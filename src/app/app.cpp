@@ -9,6 +9,7 @@
 #include "asset_manager.h"
 #include "help_popup.h"
 #include "i18n.h"
+#include "keyboard_map.h"
 #include "logger.h"
 #include "linux_input.h"
 #include "screenshot_service.h"
@@ -310,6 +311,14 @@ void run_demo_capture(lv_display_t* display,
 int Application::run() {
     logger::Logger::init();
     logger::Logger::set_tag("cardtube");
+
+    std::string keyboard_error;
+    if (!platform::keyboard_map_self_test(keyboard_error)) {
+        LOG_ERROR("keyboard map self-test failed: {}", keyboard_error);
+    }
+    else {
+        LOG_INFO("keyboard map self-test passed");
+    }
 
     const bool demo_mode = std::getenv("CARDTUBE_DEMO") != nullptr;
     const char* screenshot_directory = std::getenv("CARDTUBE_SCREENSHOT_DIR");

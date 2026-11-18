@@ -258,6 +258,8 @@ bool apply_audio_output(const std::string& sink_name, std::string& error) {
         return false;
     }
 
+    std::string ignored;
+    run_pactl({"set-sink-mute", sink_name, "0"}, 5000, ignored);
     move_cardtube_streams(sink_name);
     return true;
 }

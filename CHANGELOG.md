@@ -4,23 +4,36 @@ Tutte le modifiche rilevanti di CardTube sono annotate in questo file.
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il
 progetto usa il [versionamento semantico](https://semver.org/lang/it/).
 
-## [0.4.0] - 2026-11-18
+## [0.4.1] - 2026-11-18
 
 ### Aggiunto
 
 - Interfaccia bilingue: inglese e italiano selezionabili dalla pagina Settings
   (`language=en/it` nel file di configurazione). Il cambio è immediato e
   ricostruisce le schermate senza riavviare l'app.
-- Layout tastiera selezionabile tra US e italiano (`keyboard=us/it`), con
-  lettere accentate (à è é ì ò ù), simboli italiani e supporto UTF-8 nel campo
-  di ricerca.
-- Nuove righe Settings per lingua e tastiera; la finestra di aiuto e i messaggi
-  di stato sono tradotti.
+- La finestra di aiuto e i messaggi di stato sono tradotti.
 - Uscita audio selezionabile dalla pagina Settings: cassa interna oppure cuffie
   e speaker Bluetooth già accoppiati (`audio_output` nel file di
   configurazione). Il cambio sposta subito lo stream di `mpv` sul nuovo sink
   PipeWire/PulseAudio e i dispositivi Bluetooth vengono connessi da CardTube.
+- Tasti multimediali del layer Fn della tastiera integrata (play/pausa,
+  precedente, successivo, mute, volume) attivi in ogni pagina.
+- Self-test della mappa tastiera all'avvio, con esito nei log.
 - La versione mostrata dalla UI ora deriva da CMake (`APP_VERSION`).
+
+### Corretto
+
+- Simboli della tastiera integrata CardputerZero: CardTube ora usa la mappa
+  ufficiale M5Stack del layer Sym. La tastiera `tca8418` emette codici vendor
+  non standard (26 = `!`, 93 = `?`, ...) che prima venivano interpretati come
+  tasti US, producendo simboli sbagliati o mancanti. La mappa si applica solo
+  alla tastiera integrata, non a quelle USB esterne.
+- Rimossa la voce **Keyboard** dalle Impostazioni: l'hardware ha un'unica
+  serigrafia fisica e la scelta US/IT non cambiava i tasti reali.
+- Audio Bluetooth: `mpv` riceve ora esplicitamente il sink scelto tramite
+  `audio-device` a ogni riproduzione, oltre a `pactl set-default-sink`; viene
+  anche rimosso il mute del sink. Questo evita che WirePlumber riporti lo
+  stream sul dispositivo precedente.
 
 ## [0.3.0] - 2026-11-18
 

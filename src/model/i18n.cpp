@@ -41,7 +41,6 @@ constexpr Entry kEntries[] = {
     // Settings
     {"Theme", "Tema"},
     {"Language", "Lingua"},
-    {"Keyboard", "Tastiera"},
     {"Video mode", "Modalità video"},
     {"Autoplay next", "Riproduci dopo"},
     {"Audio output", "Uscita audio"},
@@ -120,7 +119,10 @@ constexpr Entry kEntries[] = {
     {"Reading versions...", "Lettura versioni..."},
     {"not installed", "non installato"},
     {"Language: ", "Lingua: "},
-    {"Keyboard layout: ", "Tastiera: "},
+
+    // Media keys
+    {"Muted", "Audio disattivato"},
+    {"Unmuted", "Audio riattivato"},
 
     // Audio output
     {"Auto (system)", "Automatica (sistema)"},

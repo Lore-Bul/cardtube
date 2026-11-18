@@ -36,6 +36,10 @@ void set_pause(bool paused);
 void seek_relative(double seconds);
 void set_volume(int volume_percent);
 
+// Routes the audio output to a PulseAudio/PipeWire sink ("pipewire/<sink>",
+// falling back to "pulse/<sink>"). An empty name restores automatic selection.
+void set_audio_device(const std::string& sink);
+
 Snapshot snapshot();
 void clear_ended();
 

@@ -25,7 +25,7 @@ namespace viewmodel {
 
 class BaseViewModel {
 public:
-    static constexpr int kSettingCount = 11;
+    static constexpr int kSettingCount = 10;
 
     BaseViewModel();
     ~BaseViewModel();
@@ -89,7 +89,6 @@ public:
     const std::string& config_path() const;
 
     i18n::Language language() const;
-    platform::KeyboardLayout keyboard_layout() const;
 
     // Rebuilds the LVGL screens so new translations are picked up. Registered
     // by the app once the ScreenManager exists.
@@ -135,6 +134,7 @@ public:
     void seek_relative(double seconds);
     void stop_playback();
     void change_volume(int delta);
+    void toggle_mute();
     void set_volume(int percent);
     void play_now_as_video();
 
@@ -147,7 +147,6 @@ public:
     void update_ytdlp();
     void show_version_info();
     void set_language(i18n::Language language);
-    void set_keyboard_layout(platform::KeyboardLayout layout);
 
     // ---- keyboard --------------------------------------------------------
     bool handle_key(uint32_t key, const char* key_name, bool long_pressed, bool repeat);
@@ -249,7 +248,6 @@ private:
     bool dependencies_checked_{false};
 
     i18n::Language language_{i18n::Language::English};
-    platform::KeyboardLayout keyboard_layout_{platform::KeyboardLayout::Us};
     std::function<void()> ui_refresh_callback_;
 
     std::vector<platform::AudioOutput> audio_outputs_;
@@ -258,6 +256,8 @@ private:
     bool audio_outputs_loaded_{false};
     bool audio_outputs_busy_{false};
     bool audio_output_connecting_{false};
+    bool muted_{false};
+    int volume_before_mute_{80};
 
     std::shared_ptr<std::atomic<bool>> alive_;
 

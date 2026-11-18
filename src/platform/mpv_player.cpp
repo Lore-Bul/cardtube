@@ -157,10 +157,10 @@ bool spawn_daemon(int volume_percent) {
         "--no-terminal",
         "--input-terminal=no",
         "--input-default-bindings=no",
-        "--really-quiet",
+        "--msg-level=all=warn",
         "--no-config",
         "--audio-display=no",
-"--audio-client-name=CardTube",
+        "--audio-client-name=CardTube",
         "--gapless-audio=yes",
         "--cache=yes",
         "--demuxer-max-bytes=24MiB",
@@ -391,6 +391,24 @@ void set_volume(int volume_percent) {
     std::lock_guard<std::mutex> lock(g_client_mutex);
     if (g_client.connected()) {
         g_client.set_property("volume", std::to_string(g_volume), 600);
+    }
+}
+
+void set_audio_device(const std::string& sink) {
+    std::lock_guard<std::mutex> lock(g_client_mutex);
+    if (!g_client.connected()) {
+        return;
+    }
+
+    if (sink.empty()) {
+        g_client.set_property("audio-device", "\"auto\"", 1500);
+        return;
+    }
+
+    const std::string pipewire = "\"" + json_escape("pipewire/" + sink) + "\"";
+    if (!g_client.set_property("audio-device", pipewire, 1500)) {
+        const std::string pulse = "\"" + json_escape("pulse/" + sink) + "\"";
+        g_client.set_property("audio-device", pulse, 1500);
     }
 }
 
