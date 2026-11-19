@@ -92,9 +92,9 @@ Per la compilazione:
 Copiare il pacchetto e installarlo con `apt`:
 
 ```shell
-scp dist/CardTube_0.4.3_rev1_arm64.deb <utente>@<ip-dispositivo>:~/
+scp dist/CardTube_0.4.4_rev1_arm64.deb <utente>@<ip-dispositivo>:~/
 ssh <utente>@<ip-dispositivo>
-sudo apt install --no-install-recommends ./CardTube_0.4.3_rev1_arm64.deb
+sudo apt install --no-install-recommends ./CardTube_0.4.4_rev1_arm64.deb
 ```
 
 Il pacchetto installa:
@@ -198,6 +198,30 @@ connette il dispositivo Bluetooth selezionato) e aggiorna l'elenco. La scelta è
 salvata in `audio_output`; vuoto significa uscita di sistema predefinita.
 Per il Bluetooth CardTube forza il profilo **A2DP** (non il vivavoce HFP) e
 alza il volume del sink se è troppo basso.
+
+### Bluetooth sull'immagine M5 Cardputer Zero
+
+L'immagine M5 avvia sia PipeWire/WirePlumber sia **BlueALSA**: se BlueALSA
+prende il profilo A2DP, WirePlumber vede solo HFP e la scheda Bluetooth espone
+esclusivamente `headset-head-unit*` (audio mono a 16 kHz, piano e sottile).
+Se `pactl list cards` non mostra `a2dp-sink`, dare il trust alle cuffie,
+disabilitare BlueALSA in modo permanente e riavviare:
+
+```shell
+bluetoothctl trust 84:0F:2A:FB:FB:C8   # sostituire con il MAC delle proprie cuffie
+sudo systemctl disable --now bluealsa.service bluealsa-aplay.service
+sudo systemctl mask bluealsa.service bluealsa-aplay.service
+sudo reboot
+```
+
+Dopo il riavvio `pactl list cards` deve mostrare `Active Profile: a2dp-sink` e
+`pactl list short sinks` deve riportare `2ch 48000Hz` per il sink `bluez_*`.
+Per ripristinare BlueALSA:
+
+```shell
+sudo systemctl unmask bluealsa.service bluealsa-aplay.service
+sudo systemctl enable --now bluealsa.service bluealsa-aplay.service
+```
 
 ## Log e diagnostica
 

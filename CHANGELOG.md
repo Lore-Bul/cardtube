@@ -4,6 +4,24 @@ Tutte le modifiche rilevanti di CardTube sono annotate in questo file.
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il
 progetto usa il [versionamento semantico](https://semver.org/lang/it/).
 
+## [0.4.4] - 2026-11-20
+
+### Corretto
+
+- Diagnostica Bluetooth: il log riporta ora tutti i profili della scheda con la
+  relativa disponibilità e il formato effettivo del sink (`2ch 48000Hz` per
+  A2DP, `1ch 16000Hz` per HFP), oltre al nome del sink dopo il cambio profilo.
+- Rilettura dei profili delle schede `pactl list cards` indipendente
+  dall'indentazione; se un profilo A2DP esiste ma è marcato non disponibile
+  viene comunque tentato, e se la cuffia resta in HFP viene effettuato un solo
+  disconnect/connect Bluetooth per ri-negoziare i profili.
+
+### Documentazione
+
+- Aggiunta la procedura per l'immagine M5 Cardputer Zero: se BlueALSA occupa
+  l'endpoint A2DP, dare il trust alle cuffie, mascherare `bluealsa.service` e
+  riavviare, così WirePlumber espone `a2dp-sink`.
+
 ## [0.4.3] - 2026-11-19
 
 ### Corretto
