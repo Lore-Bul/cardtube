@@ -10,9 +10,9 @@
 
 namespace platform::video {
 
-// Starts a one-shot mpv process that draws directly to the framebuffer. The
-// caller must pause LVGL rendering while active(). Falls back to the DRM/GPU
-// output when fbdev is not usable.
+// Starts a one-shot mpv process that draws directly to the connected DRM/KMS
+// connector (the 320x170 SPI panel on the Cardputer Zero). The caller must
+// pause LVGL rendering while active().
 bool play(const std::string& url,
           const std::string& quality,
           int volume_percent,

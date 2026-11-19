@@ -6,7 +6,7 @@
 
 cmake_minimum_required(VERSION 3.31)
 
-project(cardtube VERSION 0.4.4 LANGUAGES C CXX)
+project(cardtube VERSION 0.4.5 LANGUAGES C CXX)
 
 add_compile_definitions(APP_VERSION="${PROJECT_VERSION}")
 

@@ -4,6 +4,21 @@ Tutte le modifiche rilevanti di CardTube sono annotate in questo file.
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il
 progetto usa il [versionamento semantico](https://semver.org/lang/it/).
 
+## [0.4.5] - 2026-11-20
+
+### Corretto
+
+- Riproduzione video: mpv 0.40 non include più il VO `fbdev`, quindi il video
+  non partiva e lo schermo restava fermo. Ora CardTube usa `--vo=drm` e rileva
+  automaticamente la scheda con un connettore `connected` in `/sys/class/drm/`
+  (preferendo il pannello SPI): sul Cardputer Zero viene scelto
+  `/dev/dri/card1`, mentre `card0` è l'uscita HDMI non collegata. Il fallback è
+  `--vo=gpu --gpu-context=drm`.
+- Log video: `mpv` non viene più avviato con `--no-terminal`/`--really-quiet`,
+  che azzeravano stdout/stderr e lasciavano i file vuoti. Ora scrive in
+  `/tmp/cardtube/mpv-video-drm.log` e `/tmp/cardtube/mpv-video-gpu.log` con
+  `--msg-level=all=info`, così un eventuale errore del VO è diagnosticabile.
+
 ## [0.4.4] - 2026-11-20
 
 ### Corretto

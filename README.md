@@ -39,9 +39,10 @@ voce APPLaunch, così l'app compare nel launcher e nello store.
   canale, durata e miniatura.
 - **Riproduzione audio** con un demone `mpv` persistente in modalità
   `--no-video`: la UI resta visibile e reattiva mentre la musica suona.
-- **Riproduzione video** a schermo intero: CardTube cede il framebuffer a un
-  processo `mpv` one-shot (`--vo=fbdev`, fallback `--vo=gpu --gpu-context=drm`)
-  e riprende la UI alla chiusura.
+- **Riproduzione video** a schermo intero: CardTube cede il display a un
+  processo `mpv` one-shot tramite DRM/KMS (`--vo=drm`, rilevando automaticamente
+  la scheda con il connettore collegato, di solito `/dev/dri/card1`) e riprende
+  la UI alla chiusura. Il fallback è `--vo=gpu --gpu-context=drm`.
 - **Coda di riproduzione** con aggiunta, rimozione, svuotamento e avanzamento
   automatico a fine traccia.
 - **Miniature** scaricate in cache (`<runtime>/thumbs/<id>.jpg`) e mostrate
@@ -92,9 +93,9 @@ Per la compilazione:
 Copiare il pacchetto e installarlo con `apt`:
 
 ```shell
-scp dist/CardTube_0.4.4_rev1_arm64.deb <utente>@<ip-dispositivo>:~/
+scp dist/CardTube_0.4.5_rev1_arm64.deb <utente>@<ip-dispositivo>:~/
 ssh <utente>@<ip-dispositivo>
-sudo apt install --no-install-recommends ./CardTube_0.4.4_rev1_arm64.deb
+sudo apt install --no-install-recommends ./CardTube_0.4.5_rev1_arm64.deb
 ```
 
 Il pacchetto installa:
@@ -360,8 +361,12 @@ Lo script compila, crea il pacchetto e lo copia nella home del dispositivo.
 - **Audio**: un solo processo `mpv --no-video --idle` resta attivo e viene
   pilotato via socket Unix (`platform/mpv_ipc`). La UI continua a girare a
   60 fps e mostra posizione e durata.
-- **Video**: `platform/mpv_video` avvia un `mpv` separato sul framebuffer e
-  mette in pausa il refresh LVGL; al termine la UI viene ridisegnata.
+- **Video**: `platform/mpv_video` avvia un `mpv` separato con `--vo=drm` sul
+  connettore collegato (il pannello SPI su `card1`; `card0` è l'HDMI inutilizzato)
+  e mette in pausa il refresh LVGL; al termine la UI viene ridisegnata. I log dei
+  tentativi sono in `/tmp/cardtube/mpv-video-drm.log` e
+  `/tmp/cardtube/mpv-video-gpu.log`. Nota: mpv 0.40 non include più il VO
+  `fbdev`, quindi il vecchio percorso `/dev/fb0` non è utilizzabile per il video.
 - **Ricerche e download** girano su thread di lavoro e tornano sul thread LVGL
   tramite `platform::post_to_ui`, senza mai toccare LVGL da altri thread.
 - **Miniature**: `curl` scarica `mqdefault.jpg` (fallback `default.jpg`) in
